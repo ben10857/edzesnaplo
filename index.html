@@ -246,6 +246,18 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--day);flex:none}
 .fig .prf{fill:var(--surface2);stroke:var(--muted);stroke-width:1.5}
 .fig .band{stroke:var(--good);stroke-width:2;fill:none;stroke-dasharray:3 2}
 .mi{flex-wrap:wrap}
+/* gyakorlat-útmutatók */
+.fig .mch{stroke:var(--muted);stroke-width:5;stroke-linecap:round;fill:none;opacity:.55}
+.fig .mchl{stroke:var(--muted);stroke-width:2;fill:none;opacity:.6}
+.fig .mchf{fill:var(--surface2);stroke:var(--muted);stroke-width:1.5}
+.fig .cab{stroke:var(--muted);stroke-width:1.3;fill:none;stroke-dasharray:4 2}
+.gthumb{flex:none;width:58px;height:58px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:1px;display:block;margin-left:auto}
+.gthumb svg{width:100%;height:100%;display:block}
+.gwrap{margin-top:8px}
+.gfig{width:100%;max-width:300px;aspect-ratio:1/1;margin:0 auto 8px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:6px}
+.gfig svg{width:100%;height:100%;display:block}
+.gsteps{margin:0;padding-left:20px;font-size:14px}
+.gsteps li{margin-bottom:6px}
 /* mobilitás + naptár */
 .mi{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-bottom:1px solid var(--line)}
 .mi:last-child{border-bottom:0}
@@ -851,7 +863,7 @@ const findEx=(prog,id)=>{ const p=PROGRAMS[prog]; if(!p) return null; for(const 
 const labOf=(prog,id)=>{ const e=findEx(prog,id); return e?e.lab:id; };
 const finished=()=>Object.values(S.sessions).filter(s=>s.finished).sort((a,b)=>(b.date+b.startedAt).localeCompare(a.date+a.startedAt)||(b.startedAt-a.startedAt));
 function lastFor(prog,exId,exclude,skipDeload){
-  for(const s of finished()){ if(s.program!==prog||s.id===exclude) continue; if(skipDeload&&s.phase==='deload') continue; const x=s.ex&&s.ex[exId]; if(x&&(x.swap||'')===swapOf(prog,exId)&&x.sets.some(t=>t.done&&t.r!=null)) return {s,sets:x.sets.filter(t=>t.done),var:x.var||'',unk:x.sets.filter(t=>t.done&&t.unk).length}; }
+  for(const s of finished()){ if(s.program!==prog||s.id===exclude) continue; if(skipDeload&&s.phase==='deload') continue; const x=s.ex&&s.ex[exId]; if(x&&(x.swap||'')===swapOf(prog,exId)&&x.sets.some(t=>t.done&&t.r>0)) return {s,sets:x.sets.filter(t=>t.done),var:x.var||'',unk:x.sets.filter(t=>t.done&&t.unk).length}; }
   return null;
 }
 // a session gyakorlatai: a program aktuális definíciójából, vagy ha az már nincs meg, a mentett pillanatképből
@@ -942,6 +954,7 @@ function coreGym(prog,e,t,phase,last){
   const lo=t.lo, hi=t.hi, rirT=mid(t.rir), n=t.sets;
   const lt=target(e,last.s.phase), lastRirT=mid(lt.rir);
   const sets=last.sets.filter(q=>q.r);
+  if(!sets.length) return null;
   const w0=Math.max(0,...sets.map(q=>q.w||0));
   const r1=sets[0].r;
   // testsúlyos / súly nélküli
@@ -1272,10 +1285,10 @@ function fBlock(s,e,st,pair,gi,ssl){
   const mach= u==='check'&&!e.test? '' : `<input class="fmach" id="m-${e.id}" data-machine="${esc(mkey)}" placeholder="${e.cali?'Variáció (pl. emelt pike 40 cm)':'Gépbeállítás (pl. ülés 4)'}" value="${esc(mval)}" aria-label="${e.cali?'Variáció':'Gépbeállítás'}">`;
   const rows= u==='check'? fCheckRow(e,x) : x.sets.map((q,i)=>fRow(s,e,t,rc,q,i,!!st&&st[0]===e.id&&st[1]===i,x.sets.length)).join('');
   const tips= e.tip||(e.alt&&e.alt!=='—')? `<details class="more" data-od="tp${e.id}" ${odA('tp'+e.id)} style="flex-basis:100%"><summary>Végrehajtás${e.alt&&e.alt!=='—'?(e.cali?' · progresszió':' · alternatíva'):''}</summary>${e.tip?`<p>${esc(e.tip)}</p>`:''}${e.alt&&e.alt!=='—'?`<p class="muted">${e.cali?'Progresszió / könnyítés':'Alternatíva'}: ${esc(e.alt)}</p>`:''}</details>` : '';
-  return `<div class="ch"><span class="badge">${esc(e.lab)}</span><div style="flex:1;min-width:0"><div class="exname">${esc(e.name)}</div><div class="meta">${meta}</div>${tags?`<div class="tags">${tags}</div>`:''}</div></div>
+  return `<div class="ch"><span class="badge">${esc(e.lab)}</span><div style="flex:1;min-width:0"><div class="exname">${esc(e.name)}</div><div class="meta">${meta}</div>${tags?`<div class="tags">${tags}</div>`:''}</div>${guideThumb(e)}</div>
     ${reco}${issuePrevHtml(rc)}${mach}
     <div class="fsets">${rows}</div>
-    <div class="ffoot">${u==='check'?'':`<button class="fb" data-act="addset" data-ex="${e.id}">+ szett</button>${x.sets.length>1&&!x.sets[x.sets.length-1].done?`<button class="fb" data-act="rmset" data-ex="${e.id}">− szett</button>`:''}`}${tips}${u==='check'?'':issueBox(s,e,x)+modBox(s,e)}</div>`;
+    <div class="ffoot">${u==='check'?'':`<button class="fb" data-act="addset" data-ex="${e.id}">+ szett</button>${x.sets.length>1&&!x.sets[x.sets.length-1].done?`<button class="fb" data-act="rmset" data-ex="${e.id}">− szett</button>`:''}`}${guideTips(e,tips)}${u==='check'?'':issueBox(s,e,x)+modBox(s,e)}</div>`;
 }
 function fCheckRow(e,x){
   const q=x.sets[0];
@@ -2337,7 +2350,9 @@ function figAt(fig,ms){
 function figBox(fig){
   if(fig._box) return fig._box; let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
   const total=20; for(let i=0;i<=total;i++){ const J=figFK(fig,figAt(fig,i*400)); for(const k in J){ if(k==='_c') continue; const r=k==='head'?FIG_L.HR:0; x0=Math.min(x0,J[k][0]-r); x1=Math.max(x1,J[k][0]+r); y0=Math.min(y0,J[k][1]-r); y1=Math.max(y1,J[k][1]+r); } }
-  if(!fig.ay) y1=Math.max(y1,0); x0-=10; x1+=10; y0-=8; y1+=6;
+  for(const pr of fig.props||[]){ const pts= pr.t==='cable'? [[pr.x,pr.y]] : pr.t==='stack'? [[pr.x,-(pr.h||118)-4],[pr.x+16,0]] : pr.t==='box'? [[pr.x,pr.y],[pr.x+pr.w,pr.y+pr.h]] : pr.t==='wall'? [[pr.x,y0]] : [];
+    for(const q of pts){ x0=Math.min(x0,q[0]); x1=Math.max(x1,q[0]); y0=Math.min(y0,q[1]); y1=Math.max(y1,q[1]); } }
+  if(!fig.noFloor) y1=Math.max(y1,0); x0-=10; x1+=10; y0-=8; y1+=6;
   const w=x1-x0, h=y1-y0, s=Math.max(w,h); const cx=(x0+x1)/2, cy=(y0+y1)/2;
   fig._box=[cx-s/2,cy-s/2,s,s]; return fig._box;
 }
@@ -2364,6 +2379,7 @@ function figSVG(J,fig){
     else if(pr.t==='boxUnder'){ const j=J[pr.j]; props+=`<rect class="prf" x="${(j[0]-pr.w/2).toFixed(1)}" y="${(j[1]+2).toFixed(1)}" width="${pr.w}" height="${Math.max(2,-j[1]-2).toFixed(1)}" rx="2"/>`; }
     else if(pr.t==='box') props+=`<rect class="prf" x="${pr.x}" y="${Math.min(pr.y,pr.y+pr.h)}" width="${pr.w}" height="${Math.abs(pr.h)}" rx="2"/>`;
     else if(pr.t==='stick'){ const a=J.pelvis,b=J.neck; const ex=[b[0]+(b[0]-a[0])*.35,b[1]+(b[1]-a[1])*.35], ux=(b[1]-a[1]), uy=-(b[0]-a[0]), l=Math.hypot(ux,uy)||1, o=-5; props+=`<path class="band" d="M${(a[0]+ux/l*o-(b[0]-a[0])*.1).toFixed(1)} ${(a[1]+uy/l*o-(b[1]-a[1])*.1).toFixed(1)}L${(ex[0]+ux/l*o).toFixed(1)} ${(ex[1]+uy/l*o).toFixed(1)}"/>`; }
+    else if(typeof figPropExt==='function') props+=figPropExt(pr,J);
   }
   return `${props}<g class="far">${limb('F','lb')}${leg('F','lb')}</g>`
     +`<path class="lb" d="${trunk}"/><path class="lb" d="${segD('neck','head')}"/>${leg('N','lb')}<circle class="hd" cx="${J.head[0].toFixed(1)}" cy="${J.head[1].toFixed(1)}" r="${FIG_L.HR}"/>${limb('N','lb')}`
@@ -2381,7 +2397,7 @@ const figReduce=()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)')
 function figTick(now){
   const els=document.querySelectorAll('svg.fig[data-fig]');
   if(!els.length){ figRAF=null; return; }
-  for(const el of els){ const fig=figFrames(el.dataset.fig); if(!fig) continue; const g=el.querySelector('.fg');
+  for(const el of els){ if(!el.getClientRects().length) continue; const fig=figFrames(el.dataset.fig); if(!fig) continue; const g=el.querySelector('.fg');
     const ms= figReduce()? (fig.f.slice(0,-1).reduce((a,f,i)=>a+(fig.f[i+1].d??900)+(fig.f[i+1].h??600),0)-50) : now-figT0;
     g.innerHTML=figSVG(figFK(fig,figAt(fig,ms)),fig); }
   figRAF= figReduce()? null : requestAnimationFrame(figTick);
@@ -2542,6 +2558,187 @@ function adaptInput(t,s){
 }
 document.addEventListener('toggle',ev=>{ const d=ev.target; if(d.dataset&&d.dataset.od){ ui.openD=ui.openD||{}; ui.openD[d.dataset.od]=d.open; } },true);
 
+
+/* ===================== GYAKORLAT-ÚTMUTATÓK: gép + mozgó figura + lépésenkénti végrehajtás =====================
+   A gyakorlat nevéből ismeri fel, melyik útmutató tartozik hozzá (így cserénél és saját programnál is működik). */
+const SITM={t:185,hd:182,l1n:88,l2n:4,fn:90,l1f:84,l2f:4,ff:90,a1n:20,a2n:60,a1f:20,a2f:60};
+const MACH_BACK={t:'back'}, MACH_SEAT={t:'seat'};
+const gf=(f,o={})=>({...o,f});
+const GUIDES={
+ chest_press:{n:'Gépi mellnyomás',fig:gf([fr(SITM,{t:186,a1n:-75,a2n:85,a1f:-75,a2f:85},1000,300),fr(SITM,{t:186,a1n:88,a2n:90,a1f:88,a2f:90},1000,600)],{props:[{t:'stack',x:-40},MACH_SEAT,MACH_BACK,{t:'handle'},{t:'mark',k:'chest'}],hl:['a1n']}),
+  s:['Állítsd be az ülést úgy, hogy a fogantyúk mellközép magasságában legyenek; hát és fej a háttámlán.','Lapockákat húzd hátra-le, mellkas kissé kiemelve, talp a földön.','Kilégzéssel told előre a fogantyúkat, amíg a könyök majdnem nyújtott (ne zárd be teljesen).','Lassan, 2–3 mp alatt engedd vissza, amíg hátul a mellizom nyújtást érzel.'],
+  m:'A vállak előreesnek és felhúzódnak, vagy a könyök túl magasan van (könyök kb. 45–60°-ban a törzshöz).'},
+ incline_machine:{n:'Ferde nyomás (gép / Smith)',fig:gf([fr(SITM,{t:210,hd:205,a1n:-28,a2n:168,a1f:-28,a2f:168},1000,300),fr(SITM,{t:210,hd:205,a1n:160,a2n:160,a1f:160,a2f:160},1000,600)],{props:[MACH_SEAT,{t:'back',len:1.2},{t:'hbar'},{t:'mark',k:'chest'}],hl:['a1n']}),
+  s:['Pad / háttámla kb. 30°-ra döntve; Smithnél a rúd a mellkas felső részére (kulcscsont alá) érkezzen.','Lapockák hátra-le, enyhe ív a mellkasban, talp a földön.','Kilégzéssel nyomd fel a súlyt a vállak fölé, könyök ne zárjon be.','Lassan (2–3 mp) engedd le a felső mellkasig, alul rövid megállás.'],
+  m:'Túl meredek pad (a váll veszi át a munkát), vagy a rúd a nyak felé érkezik.'},
+ incline_db:{n:'Ferde nyomás kézisúlyzóval',fig:gf([fr(SITM,{t:210,hd:205,a1n:-28,a2n:168,a1f:-28,a2f:168},1000,300),fr(SITM,{t:210,hd:205,a1n:160,a2n:160,a1f:160,a2f:160},1000,600)],{props:[MACH_SEAT,{t:'back',len:1.2},{t:'db'},{t:'mark',k:'chest'}],hl:['a1n']}),
+  s:['Pad kb. 30°-ra; ülj le a súlyzókkal a combodon, és dőlj hátra, közben térddel segítsd fel őket.','Súlyzók a mellkas mellett, alkar függőleges, könyök kb. 45°-ban a törzshöz.','Kilégzéssel nyomd fel egy enyhe íven, a súlyzók fent közel kerülnek egymáshoz.','Lassan engedd le, amíg a mellkasban jó nyújtást érzel.'],
+  m:'A súlyzók szétcsúsznak oldalra, vagy a könyök teljesen kinyílik (váll-terhelés).'},
+ bench_bb:{n:'Fekvenyomás rúddal',fig:gf([fr(SUP,{l1n:58,l2n:0,fn:90,l1f:58,l2f:0,ff:90,a1n:40,a2n:175,a1f:40,a2f:175},1100,300),fr(SUP,{l1n:58,l2n:0,fn:90,l1f:58,l2f:0,ff:90,a1n:178,a2n:178,a1f:178,a2f:178},1000,600)],{props:[{t:'benchT'},{t:'plate'},{t:'mark',k:'chest'}],hl:['a1n']}),
+  s:['Feküdj a padra, szemed a rúd alatt; talp stabilan a földön, lapockák hátra-le „a zsebbe”.','Fogás kicsit vállszélességen kívül, csukló egyenes, alkar függőleges az alsó ponton.','Emeld ki a rudat, majd lassan (≥2 mp) engedd le a mellkas alsó részére.','Érintés után kilégzéssel nyomd fel enyhe íven a váll fölé. Erős sorozatnál legyen segítő.'],
+  m:'A fenék felemelkedik, a könyök 90°-ban kifelé áll, vagy a rúd lepattan a mellkasról.'},
+ pec_deck:{n:'Tárogatás gépen (pec deck)',fig:gf([fr(SITM,{t:182,a1n:-85,a2n:-70,a1f:-85,a2f:-70},1000,300),fr(SITM,{t:182,a1n:82,a2n:95,a1f:82,a2f:95},1000,600)],{props:[{t:'stack',x:-40},MACH_SEAT,MACH_BACK,{t:'handle'},{t:'mark',k:'chest'}],hl:['a1n']}),
+  s:['Ülés úgy, hogy a fogantyúk / párnák vállmagasságban legyenek; hát a támlán.','Könyök enyhén hajlítva és végig így marad (nem nyomás, hanem ölelő mozdulat).','Kilégzéssel hozd össze a karokat a mellkas előtt, rövid szorítás.','Lassan engedd vissza, amíg a mellizom nyúlik — a váll ne essen előre.'],
+  m:'Túl nagy hátsó tartomány, amitől a váll eleje fájni kezd; vagy a karok behajlítása (nyomássá válik).'},
+ reverse_pec:{n:'Fordított tárogatás (reverse pec deck)',fig:gf([fr(SITM,{t:176,hd:178,a1n:88,a2n:92,a1f:88,a2f:92},1000,300),fr(SITM,{t:176,hd:178,a1n:-85,a2n:-90,a1f:-85,a2f:-90},1000,600)],{props:[MACH_SEAT,{t:'chestpad'},{t:'handle'},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Ülj szembe a géppel, mellkas a párnán, fogantyúk vállmagasságban.','Karok majdnem nyújtva, a mozgás a vállból jön.','Vidd hátra a karokat oldalra-hátra, amíg egy vonalba kerülnek a törzzsel.','Lassan vissza; a lapockák ne húzódjanak teljesen össze — a hátsó váll dolgozzon.'],
+  m:'Lendületből rántod, vagy a vállak felhúzódnak a fülek felé.'},
+ cable_fly_low:{n:'Kábeles keresztbehúzás (alacsonyról)',fig:gf([fr(STAND,{t:172,a1n:-35,a2n:-25,a1f:-35,a2f:-25,l1n:15,l2n:5,l1f:-15,l2f:-20},1000,300),fr(STAND,{t:172,a1n:125,a2n:130,a1f:125,a2f:130,l1n:15,l2n:5,l1f:-15,l2f:-20},1000,600)],{props:[{t:'cable',x:-50,y:-10},{t:'handle'},{t:'mark',k:'chest'}],hl:['a1n']}),
+  s:['Csigák alul; állj a gépek közé, egyik láb elöl, törzs enyhén előre.','Karok lent-hátul, könyök enyhén hajlítva.','Hozd fel és össze a kezeket egy íven állmagasságig.','Lassan vissza a nyújtott helyzetig.'],
+  m:'Könyökből nyomás lesz belőle, vagy a derék homorít.'},
+ shoulder_press_m:{n:'Gépi vállnyomás',fig:gf([fr(SITM,{t:182,a1n:15,a2n:175,a1f:15,a2f:175},1000,300),fr(SITM,{t:182,a1n:178,a2n:178,a1f:178,a2f:178},1000,600)],{props:[{t:'stack',x:-40},MACH_SEAT,MACH_BACK,{t:'handle'},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Ülés úgy, hogy a fogantyúk vállmagasságban legyenek; derék a támlán.','Könyök kicsit a törzs előtt, csukló a könyök fölött.','Kilégzéssel nyomd fel, könyök fent ne zárjon be.','Lassan vissza vállmagasságig.'],
+  m:'A derék elválik a támlától (homorítás), vagy a fej előrebukik.'},
+ db_shoulder_press:{n:'Vállnyomás kézisúlyzóval',fig:gf([fr(SITM,{t:182,a1n:15,a2n:175,a1f:15,a2f:175},1000,300),fr(SITM,{t:182,a1n:178,a2n:178,a1f:178,a2f:178},1000,600)],{props:[MACH_SEAT,MACH_BACK,{t:'db'},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Pad függőleges támlával; súlyzók vállmagasságban, tenyér előre vagy enyhén befelé.','Kilégzéssel nyomd fel a fej fölé, a súlyzók közel kerülnek egymáshoz.','Lassan vissza fülmagasságig.'],m:'Homorítás vagy a súlyzók összeütése fent.'},
+ lat_raise_cable:{n:'Oldalemelés kábelen',fig:gf([fr(STF,{sw:13,hw:6,a1n:10,a2n:12,a1f:-35,a2f:30},900,200),fr(STF,{sw:13,hw:6,a1n:85,a2n:90,a1f:-35,a2f:30},900,500)],{fv:1,props:[{t:'cable',x:-30,y:-8},{t:'handle'},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Csiga alul; állj oldalt a géphez, a távolabbi kézzel fogd a fogantyút (a kábel a tested előtt fut).','Törzs egyenes, könyök enyhén hajlítva.','Emeld a kart oldalra vállmagasságig, a könyök vezet, a hüvelykujj ne forduljon felfelé.','Lassan vissza — alul se engedd teljesen el a feszülést.'],
+  m:'Lendület a törzsből, vagy vállból „vállvonogatás”.'},
+ lat_raise_machine:{n:'Gépi oldalemelés',fig:gf([fr(STF,{sw:13,hw:6,a1n:15,a2n:100,l1n:80,l2n:0,fn:90,sc:{l1n:.35}},900,200),fr(STF,{sw:13,hw:6,a1n:85,a2n:100,l1n:80,l2n:0,fn:90,sc:{l1n:.35}},900,500)],{fv:1,props:[{t:'roller',j:'elN',r:5},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Ülés úgy, hogy a váll a gép forgáspontjával egy vonalban legyen; párnák a könyök külső oldalán.','Emeld a könyököt oldalra vállmagasságig.','Lassan vissza.'],m:'A vállak felhúzódnak; túl nehéz súly, rövid tartomány.'},
+ lat_raise_db:{n:'Oldalemelés kézisúlyzóval',fig:gf([fr(STF,{sw:13,hw:6,a1n:8,a2n:10},900,200),fr(STF,{sw:13,hw:6,a1n:85,a2n:90},900,500)],{fv:1,props:[{t:'db'},{t:'db',j:'haF'},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Állj egyenesen, súlyzók a combod mellett, enyhe előredőlés.','Emeld oldalra vállmagasságig, könyök enyhén hajlítva.','Lassan vissza.'],m:'Lendítés a törzsből.'},
+ oh_triceps:{n:'Tricepsznyújtás fej fölött (kábel)',fig:gf([fr(STAND,{t:160,hd:165,a1n:162,a2n:-115,a1f:162,a2f:-115,l1n:20,l2n:5,l1f:-22,l2f:-28},1000,300),fr(STAND,{t:160,hd:165,a1n:162,a2n:162,a1f:162,a2f:162,l1n:20,l2n:5,l1f:-22,l2f:-28},900,500)],{props:[{t:'cable',x:-60,y:-150},{t:'handle'}],hl:['a1n','a2n']}),
+  s:['Kötél vagy fogantyú a felső csigán; fordíts hátat a gépnek, lépj ki egy lépést, egyik láb elöl.','Felkar a fej mellett előre-fel mutat, és végig ott marad.','Csak az alkar mozog: nyújtsd ki a könyököt előre-felfelé.','Lassan vissza, amíg a tricepsz hosszú feje nyúlik.'],
+  m:'A felkar előre-hátra mozog. Ha a kisujj- és gyűrűsujj-oldalon zsibbadás jelentkezik, válts nem fej fölötti változatra (pl. letolás).'},
+ pushdown:{n:'Tricepsz letolás kábelen',fig:gf([fr(STAND,{t:172,a1n:5,a2n:150,a1f:5,a2f:150},900,300),fr(STAND,{t:172,a1n:5,a2n:3,a1f:5,a2f:3},900,500)],{props:[{t:'stack',x:30,h:150},{t:'cable',x:34,y:-158},{t:'handle'}],hl:['a1n','a2n']}),
+  s:['Fogantyú / kötél a felső csigán, állj szembe a géppel, enyhe előredőlés.','Könyök a törzs mellett, és végig ott marad.','Told le a fogantyút, amíg a könyök kinyúlik; kötélnél alul húzd szét a végeket.','Lassan vissza mellmagasságig.'],
+  m:'A könyök előre-hátra mozog, vagy a válladdal nyomod le.'},
+ leg_curl_seated:{n:'Ülő lábhajlítás',fig:gf([fr(SITM,{t:194,hd:188,l1n:88,l2n:88,fn:170,l1f:88,l2f:88,ff:170,a1n:30,a2n:70},1000,300),fr(SITM,{t:194,hd:188,l1n:88,l2n:-15,fn:80,l1f:88,l2f:-15,ff:80,a1n:30,a2n:70},1000,600)],{ay:['pelvis',-46],props:[MACH_SEAT,MACH_BACK,{t:'roller',j:'anN',dy:5,r:5},{t:'roller',j:'knN',dy:-7,r:5}],hl:['l1n']}),
+  s:['Állítsd be a háttámlát úgy, hogy a térded a gép forgáspontjával egy vonalban legyen.','A lábpárna a boka fölött, a vádli alsó részén legyen; a combpárnát szorítsd le a térd fölött.','Hajlítsd be a térded, amennyire tudod, húzd a sarkadat az ülés alá.','Lassan (2–3 mp) engedd vissza majdnem nyújtott térdig.'],
+  m:'A fenék felemelkedik az ülésről, vagy rövid, rángatott mozgás.'},
+ leg_curl_lying:{n:'Fekvő lábhajlítás',fig:gf([fr(PRONE,{a1n:20,a2n:80,a1f:20,a2f:80,l2n:-90,l2f:-90},1000,300),fr(PRONE,{a1n:20,a2n:80,a1f:20,a2f:80,l2n:155,fn:230,l2f:155,ff:230},1000,600)],{ay:['pelvis',-40],props:[{t:'benchT'},{t:'roller',j:'anN',dy:-6,r:5}],hl:['l1n']}),
+  s:['Feküdj hasra, a térd épp a pad szélén túl legyen, a párna a boka fölött.','Csípő végig a padon (ne emeld fel).','Hajlítsd be a térded, húzd a sarkadat a farod felé.','Lassan vissza.'],m:'A csípő felemelkedik, vagy a derék homorít.'},
+ calf_seated:{n:'Ülő vádliemelés',fig:gf([fr(SITM,{l1n:90,l2n:0,fn:112,l1f:90,l2f:0,ff:112,a1n:40,a2n:60},800,300),fr(SITM,{l1n:90,l2n:0,fn:55,l1f:90,l2f:0,ff:55,a1n:40,a2n:60},800,600)],{props:[MACH_SEAT,{t:'roller',j:'knN',dy:-7,r:5},{t:'boxUnder',j:'toN',w:16}],hl:['l2n']}),
+  s:['Lábujjpárnák a lépcsőn, sarok szabadon; a párnát térd fölött a combra.','Engedd le a sarkadat, amennyire tudod, alul tarts 1–2 mp-et.','Emelkedj fel lábujjhegyre, fent rövid szorítás.'],m:'Pattogás alul, rövid tartomány.'},
+ calf_standing:{n:'Álló vádliemelés (gép)',fig:gf([fr(STAND,{fn:112,ff:112,a1n:20,a2n:165,a1f:20,a2f:165},800,300),fr(STAND,{fn:55,ff:55,a1n:20,a2n:165,a1f:20,a2f:165},800,600)],{props:[{t:'roller',j:'shN',dy:-6,r:5},{t:'boxUnder',j:'toN',w:16}],hl:['l2n']}),
+  s:['Vállpárnák a vállon, lábujjpárnák a lépcső szélén, térd nyújtva (de nem zárva).','Engedd le a sarkadat mélyre, alul 1–2 mp megállás.','Emelkedj fel lábujjhegyre, fent szorítás.'],m:'Térdből rugózás vagy derékhajlítás. Ha a derék reagál, válts ülő változatra.'},
+ pulldown:{n:'Mellhez húzás (lehúzás)',fig:gf([fr(SITM,{t:188,hd:185,a1n:172,a2n:175,a1f:172,a2f:175},1000,300),fr(SITM,{t:192,hd:188,a1n:-15,a2n:165,a1f:-15,a2f:165},1000,600)],{props:[MACH_SEAT,{t:'roller',j:'knN',dy:-7,r:5},{t:'hbar'},{t:'cable',x:6,y:-178},{t:'mark',k:'back'}],hl:['a1n']}),
+  s:['Combpárna szorosan a combon; fogd meg a fogantyút (semleges = tenyér egymás felé).','Fent hagyd teljesen kinyúlni a hátat, váll felfelé engedve.','Először a lapockákat húzd le, majd a könyököt a csípő felé, a fogantyú a mellkas felső részéig jön.','Lassan vissza a teljes nyújtásig.'],
+  m:'Hátradőlés és lendület, vagy a fogantyú a nyak mögé megy.'},
+ pullup_assist:{n:'Asszisztált húzódzkodás (gép)',fig:gf([fr(STAND,{a1n:178,a2n:178,a1f:178,a2f:178,l1n:0,l2n:-95,fn:-90,l1f:0,l2f:-95,ff:-90},1000,300),fr(STAND,{a1n:25,a2n:172,a1f:25,a2f:172,l1n:0,l2n:-95,fn:-90,l1f:0,l2f:-95,ff:-90},1000,600)],{ay:['wrN',-215],ax:'wrN',props:[{t:'hbar',w:40},{t:'boxUnder',j:'knN',w:26},{t:'mark',k:'back'}],hl:['a1n']}),
+  s:['Térdelj a párnára (vagy állj rá); minél nagyobb az ellensúly, annál könnyebb.','Fogás vállszélesen, teljes lelógásból indulj, lapockák lehúzva.','Húzd magad fel, amíg az állad a rúd fölé ér, könyök a törzs felé.','Lassan engedd le teljes lelógásig.'],
+  m:'Félmozgás (nem engeded le teljesen), vagy lendület.'},
+ pullup:{n:'Húzódzkodás',fig:gf([fr(STAND,{a1n:178,a2n:178,a1f:178,a2f:178,l1n:15,l2n:-25,l1f:15,l2f:-25,fn:60,ff:60},1000,300),fr(STAND,{a1n:25,a2n:172,a1f:25,a2f:172,l1n:15,l2n:-25,l1f:15,l2f:-25,fn:60,ff:60},1000,600)],{ay:['wrN',-230],ax:'wrN',noFloor:1,props:[{t:'hbar',w:40},{t:'mark',k:'back'}],hl:['a1n']}),
+  s:['Fogás vállszélesen, teljes lelógás, aktív váll (lapockák kissé lehúzva).','Húzd magad fel, amíg az állad a rúd fölé ér; mellkas a rúd felé.','Lassan engedd le teljes lelógásig. Súlyozottnál az öv / mellény szorosan.'],m:'Rugózás, kipping, vagy nem teljes lelógás.'},
+ row_chest:{n:'Mellkas-támaszos evezés',fig:gf([fr(SITM,{t:148,hd:140,a1n:118,a2n:118,a1f:118,a2f:118},1000,300),fr(SITM,{t:148,hd:140,a1n:-75,a2n:100,a1f:-75,a2f:100},1000,600)],{props:[MACH_SEAT,{t:'chestpad'},{t:'handle'},{t:'mark',k:'back'}],hl:['a1n']}),
+  s:['Mellkas a párnán, a fogantyút nyújtott karral éred el.','Elöl engedd előre a lapockákat (nyújtás).','Húzd a könyököt hátra a törzs mellett, a lapockák összezárnak.','Lassan vissza; a mellkas végig a párnán marad.'],m:'A mellkas elválik a párnától (derékból húzás).'},
+ row_cable:{n:'Ülő kábeles evezés',fig:gf([fr(SITM,{t:165,hd:160,l1n:86,l2n:96,fn:175,l1f:86,l2f:96,ff:175,a1n:92,a2n:92,a1f:92,a2f:92},1000,300),fr(SITM,{t:183,hd:182,l1n:86,l2n:96,fn:175,l1f:86,l2f:96,ff:175,a1n:-80,a2n:95,a1f:-80,a2f:95},1000,600)],{ay:['pelvis',-16],props:[{t:'cable',x:95,y:-14},{t:'handle'},{t:'mark',k:'back'}],hl:['a1n']}),
+  s:['Talp a lábtartón, térd enyhén hajlítva, egyenes háttal ülj.','Elöl engedd előre a vállakat (nyújtás), de a derék ne görbüljön.','Húzd a fogantyút a hasadhoz, könyök a törzs mellett hátra, mellkas ki.','Lassan vissza.'],m:'Nagy törzslendítés előre-hátra.'},
+ straight_pulldown:{n:'Egykezes / egyenes karos lehúzás',fig:gf([fr(STAND,{t:165,hd:165,a1n:150,a2n:150,a1f:150,a2f:150},1000,300),fr(STAND,{t:165,hd:165,a1n:-5,a2n:-5,a1f:-5,a2f:-5},1000,500)],{props:[{t:'cable',x:42,y:-170},{t:'handle'},{t:'mark',k:'back'}],hl:['a1n']}),
+  s:['Felső csiga, állj szembe, enyhe előredőlés, kar majdnem nyújtva.','A vállból indítva húzd le a fogantyút a combod mellé egy íven.','Lassan vissza, amíg a hát (lats) nyúlik.'],m:'Behajlik a könyök, és tricepsz-letolás lesz belőle.'},
+ face_pull:{n:'Kábeles face pull',fig:gf([fr(STAND,{t:180,a1n:92,a2n:92,a1f:92,a2f:92},900,300),fr(STAND,{t:182,a1n:-95,a2n:150,a1f:-95,a2f:150},900,600)],{props:[{t:'cable',x:62,y:-122},{t:'handle'},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Kötél a csigán fej magasságban, állj szembe, lépj hátra egyet.','Húzd a kötelet az arcod felé, a könyök magasan, a végeket húzd szét a fülek mellé.','Fent forgasd kifelé a vállat (mintha bicepszet mutatnál), majd lassan vissza.'],m:'Derékból hátradőlés, vagy a könyök leesik.'},
+ bayesian:{n:'Bayesian kábeles curl',fig:gf([fr(STAND,{t:175,a1n:-25,a2n:-25,a1f:-10,a2f:10,l1n:18,l2n:5,l1f:-18,l2f:-22},900,300),fr(STAND,{t:175,a1n:-25,a2n:150,a1f:-10,a2f:10,l1n:18,l2n:5,l1f:-18,l2f:-22},900,600)],{props:[{t:'cable',x:-55,y:-14},{t:'handle'}],hl:['a2n','a1n']}),
+  s:['Csiga alul; fordíts hátat a gépnek, lépj előre, hogy a kar a test mögött legyen.','A felkar végig hátrafelé mutat és nem mozdul.','Hajlítsd be a könyököt, fent szorítás.','Lassan vissza a teljes nyújtásig.'],m:'A könyök előre vándorol (elveszik a nyújtott helyzet).'},
+ preacher:{n:'Scott-gép curl',fig:gf([fr(SITM,{t:172,a1n:55,a2n:55,a1f:55,a2f:55},900,300),fr(SITM,{t:172,a1n:55,a2n:-170,a1f:55,a2f:-170},900,600)],{props:[MACH_SEAT,{t:'armpad'},{t:'handle'}],hl:['a2n','a1n']}),
+  s:['Ülés úgy, hogy a hónalj a párna tetején legyen, felkar teljesen a párnán.','Hajlítsd fel a fogantyút, fent rövid szorítás.','Lassan engedd le majdnem nyújtott könyökig — alul a legerősebb az inger, kontrolláltan.'],m:'A felkar elemelkedik a párnáról.'},
+ incline_curl:{n:'Bicepsz curl ferde padon',fig:gf([fr(SITM,{t:220,hd:205,a1n:0,a2n:0,a1f:0,a2f:0},900,300),fr(SITM,{t:220,hd:205,a1n:0,a2n:155,a1f:0,a2f:155},900,600)],{props:[MACH_SEAT,{t:'back',len:1.2},{t:'db'}],hl:['a2n','a1n']}),
+  s:['Pad kb. 45–60°-ra, dőlj hátra, karok egyenesen lelógnak (váll hátrafelé nyúlik).','Hajlítsd fel a súlyzót, a könyök nem jön előre.','Lassan vissza teljes nyújtásig.'],m:'A könyök előre mozdul, vagy a vállak előreesnek.'},
+ leg_ext:{n:'Lábnyújtás',fig:gf([fr(SITM,{t:196,hd:188,l1n:88,l2n:5,fn:95,l1f:88,l2f:5,ff:95,a1n:30,a2n:70},900,300),fr(SITM,{t:196,hd:188,l1n:88,l2n:88,fn:175,l1f:88,l2f:88,ff:175,a1n:30,a2n:70},900,600)],{ay:['pelvis',-46],props:[MACH_SEAT,MACH_BACK,{t:'roller',j:'anN',dx:3,dy:-3,r:5}],hl:['l1n']}),
+  s:['Háttámla úgy, hogy a térd a forgásponttal egy vonalban legyen; párna a boka elején.','Hátradöntött támlával a négyfejű egyenes része is jobban nyúlik.','Nyújtsd ki a térdet, fent 1 mp szorítás.','Lassan vissza.'],m:'Lendítés, vagy a csípő felemelkedik.'},
+ glute_kick:{n:'Farizom-gép / kábeles kickback',fig:gf([fr(STAND,{t:125,hd:120,a1n:60,a2n:90,a1f:60,a2f:90,l1n:35,l2n:-15,fn:60,l1f:0,l2f:0},900,300),fr(STAND,{t:125,hd:120,a1n:60,a2n:90,a1f:60,a2f:90,l1n:-60,l2n:-60,fn:0,l1f:0,l2f:0},900,600)],{props:[{t:'chestpad'},{t:'roller',j:'anN',dx:-4,r:5}],hl:['hip']}),
+  s:['Állj a gépbe, mellkas / alkar a párnán, a dolgozó láb talpa vagy bokája a párnán.','Csípőből told hátra a lábat, a farizmot szorítsd meg.','A derék ne homorodjon be a mozgás végén; lassan vissza.'],m:'Derékból „hintázás” a csípő helyett.'},
+ hip_abd:{n:'Csípő-abdukció gép',fig:gf([fr(STF,{sw:13,hw:7,l1n:20,l2n:0,fn:90,sc:{l1n:.5},a1n:30,a2n:60},900,300),fr(STF,{sw:13,hw:7,l1n:65,l2n:0,fn:90,sc:{l1n:.5},a1n:30,a2n:60},900,600)],{fv:1,props:[MACH_SEAT,{t:'roller',j:'knN',dx:4,r:5},{t:'roller',j:'knF',dx:-4,r:5}],hl:['hip']}),
+  s:['Ülj a gépbe, párnák a térd külső oldalán.','Told szét a térdeket, amennyire tudod, rövid szorítás.','Lassan vissza.'],m:'Lendület, vagy előre-hátra billegés.'},
+ hack:{n:'Hack guggolás',fig:gf([fr(STAND,{t:202,hd:195,l1n:24,l2n:16,fn:110,l1f:24,l2f:16,ff:110,a1n:-150,a2n:160,a1f:-150,a2f:160},1100,300),fr(STAND,{t:202,hd:195,l1n:102,l2n:-28,fn:110,l1f:102,l2f:-28,ff:110,a1n:-150,a2n:160,a1f:-150,a2f:160},1100,600)],{ax:'anN',props:[{t:'back',len:1.35},{t:'roller',j:'shN',dy:-6,r:5},{t:'plat',a:'anN',b:'toN',ext:6}],hl:['l1n']}),
+  s:['Hát és far végig a párnán, váll a vállpárnák alatt; láb csípőszélesen a platform közepén.','Engedd ki a biztosítót, és ereszkedj lassan mélyre (a térd mehet a lábujj fölé).','Alul ne bukj ki a párnáról, a far maradjon a párnán.','Kilégzéssel told fel a teljes talpon át, fent a térd ne zárjon be.'],
+  m:'A far elválik a párnától alul, vagy a sarok felemelkedik.'},
+ leg_press:{n:'Lábtoló',fig:gf([fr(STAND,{t:240,hd:225,l1n:162,l2n:92,fn:205,l1f:162,l2f:92,ff:205,a1n:-10,a2n:20,a1f:-10,a2f:20},1100,300),fr(STAND,{t:240,hd:225,l1n:128,l2n:128,fn:215,l1f:128,l2f:128,ff:215,a1n:-10,a2n:20,a1f:-10,a2f:20},1100,600)],{props:[{t:'back',len:1.25},{t:'plat',a:'anN',b:'toN',ext:8}],hl:['l1n']}),
+  s:['Hát és far a támlán, láb csípőszélesen a platform közepén.','Engedd ki a biztosítót, és engedd le a platformot, amíg a medence a támlán marad.','Kilégzéssel told ki a teljes talpon át, a térd ne zárjon be teljesen.','Ha alul a far felemelkedik, csökkentsd a mélységet.'],
+  m:'Túl mély leengedés, amitől a derék begörbül — ez terheli a derekat.'},
+ squat_bb:{n:'Guggolás rúddal (sarokemeléssel)',fig:gf([fr(STAND,{a1n:-55,a2n:150,a1f:-55,a2f:150},1100,300),fr(SQUAT,{t:150,hd:160,a1n:-40,a2n:150,a1f:-40,a2f:150},1100,600)],{ax:'anN',props:[{t:'plate',j:'neck',dx:-5,dy:2},{t:'boxUnder',j:'anN',w:14}],hl:['l1n','hip']}),
+  s:['A rúd a trapézon, lábak vállszélesen, sarok alatt kis emelő (tárcsa) a mélyebb guggoláshoz.','Mély belégzés, has megfeszítve, és ereszkedj lassan: a térd a lábujjak irányába megy.','Mélyen, semleges gerinccel; alul ne „bukjon” be a medence.','Kilégzéssel told fel a teljes talpon át.'],
+  m:'A térd befelé esik, vagy alul begörbül a derék.'},
+ hip_thrust:{n:'Hip thrust',fig:gf([fr(SUP,{t:-125,hd:-110,l1n:115,l2n:-25,fn:90,l1f:115,l2f:-25,ff:90,a1n:150,a2n:120,a1f:150,a2f:120},1000,300),fr(SUP,{t:-90,hd:-90,l1n:80,l2n:0,fn:90,l1f:80,l2f:0,ff:90,a1n:110,a2n:90,a1f:110,a2f:90},1000,700)],{ay:['neck',-44],ax:'neck',props:[{t:'box',x:-30,y:0,w:30,h:-40},{t:'roller',j:'pelvis',dy:-8,r:7}],hl:['hip']}),
+  s:['Lapockák alsó része a padon (gépnél a háttámlán), párna / rúd a csípőn, talp csípőszélesen.','Sarokból told fel a csípőt, amíg a törzs és a comb egy vonalba kerül.','Fent „bordák le, far összeszorít” — ne a derék feszítsen túl.','Lassan engedd le.'],m:'Fent homorítás a derékból a csípő-nyújtás helyett.'},
+ sl_hip_thrust:{n:'Egylábas csípőemelés, váll a padon',fig:gf([fr(SUP,{t:-125,hd:-110,l1n:115,l2n:-25,fn:90,l1f:150,l2f:60,ff:150,a1n:150,a2n:120,a1f:150,a2f:120},1000,300),fr(SUP,{t:-90,hd:-90,l1n:80,l2n:0,fn:90,l1f:150,l2f:60,ff:150,a1n:110,a2n:90,a1f:110,a2f:90},1000,700)],{ay:['neck',-44],ax:'neck',props:[{t:'box',x:-30,y:0,w:30,h:-40}],hl:['hip']}),
+  s:['Lapockák a padon, egyik talp a földön, a másik láb a levegőben.','Sarokból told fel a csípőt, fent szorítsd a farizmot, a medence ne billenjen.','Lassan vissza.'],m:'A medence oldalra billen, vagy a derék feszít.'},
+ hip_ext45:{n:'45°-os csípőfeszítés',fig:gf([fr(STAND,{t:28,hd:20,l1n:-42,l2n:-42,fn:40,l1f:-42,l2f:-42,ff:40,a1n:60,a2n:200,a1f:60,a2f:200},1000,300),fr(STAND,{t:135,hd:130,l1n:-42,l2n:-42,fn:40,l1f:-42,l2f:-42,ff:40,a1n:160,a2n:300,a1f:160,a2f:300},1000,700)],{ax:'anN',props:[{t:'roller',j:'pelvis',dx:6,dy:4,r:6},{t:'plat',a:'anN',b:'toN',ext:4}],hl:['hip','l1n']}),
+  s:['A párna a csípőcsont alatt legyen, hogy a csípő szabadon hajolhasson.','Hajolj előre csípőből, a hát egyenes marad.','Feszítsd vissza a törzset a lábakkal egy vonalig a farizommal — ne homoríts túl.','Fájdalom-monitorozás: kontrollált, lassú mozgás.'],m:'A derék görbül és homorít a csípő helyett.'},
+ rdl:{n:'Román felhúzás (RDL)',fig:gf([fr(STAND,{a1n:0,a2n:0,a1f:0,a2f:0},1000,300),fr(STAND,{t:100,hd:96,a1n:-5,a2n:-5,a1f:-5,a2f:-5,l1n:18,l2n:-8,l1f:18,l2f:-8},1100,600)],{ax:'anN',props:[{t:'plate'}],hl:['l1n','hip']}),
+  s:['Rúd / súlyzók a combod előtt, enyhén hajlított térd.','Csípőből told hátra a fenekedet, a rúd a combodon csúszik lefelé, a hát egyenes.','Addig hajolj, amíg a combhajlítóban erős nyújtást érzel (kb. térd alá), a derék nem görbül.','Csípőből told előre, és állj fel.'],
+  m:'Begörbülő derék, vagy guggolássá válik (túl sok térdhajlítás). Visszavezetésnél kis súllyal kezdj.'},
+ cable_crunch:{n:'Kábeles crunch',fig:gf([fr(QUAD,{t:165,hd:170,l1n:0,l2n:-90,fn:-90,l1f:0,l2f:-90,ff:-90,a1n:160,a2n:-110,a1f:160,a2f:-110},900,300),fr(QUAD,{t:75,hd:40,c:8,l1n:0,l2n:-90,fn:-90,l1f:0,l2f:-90,ff:-90,a1n:100,a2n:-160,a1f:100,a2f:-160},900,600)],{props:[{t:'cable',x:30,y:-190}],hl:['trunk']}),
+  s:['Térdelj a felső csiga elé, a kötelet a fejed mellett fogd.','A csípő nem mozdul: a hasizommal görbítsd a törzset, könyök a térd felé.','Lassan vissza a nyújtott helyzetig.'],m:'Csípőből hajolsz (a súlyt a karral és a testsúllyal húzod le).'},
+ dip:{n:'Tolódzkodás korláton',fig:gf([fr(STAND,{a1n:0,a2n:0,a1f:0,a2f:0,l1n:-10,l2n:-80,fn:0,l1f:-10,l2f:-80,ff:0},1000,300),fr(STAND,{t:170,a1n:-60,a2n:0,a1f:-60,a2f:0,l1n:-10,l2n:-80,fn:0,l1f:-10,l2f:-80,ff:0},1000,600)],{ay:['wrN',-120],ax:'wrN',noFloor:1,props:[{t:'hbar',w:30},{t:'mark',k:'chest'}],hl:['a1n']}),
+  s:['Támasz a korláton nyújtott karral, vállak le-hátra.','Engedd le magad, amíg a váll a könyök szintje alá kerül, enyhe előredőléssel.','Told fel magad nyújtott karig.'],m:'Túl mély leengedés fájó vállal, vagy a vállak felhúzódnak.'},
+ pushup:{n:'Fekvőtámasz / pseudo planche',fig:gf([fr(STAND,{t:100,hd:95,a1n:0,a2n:0,a1f:0,a2f:0,l1n:-80,l2n:-80,fn:-10,l1f:-80,l2f:-80,ff:-10},900,300),fr(STAND,{t:96,hd:92,a1n:-60,a2n:5,a1f:-60,a2f:5,l1n:-84,l2n:-84,fn:-10,l1f:-84,l2f:-84,ff:-10},900,500)],{props:[{t:'mark',k:'chest'}],hl:['a1n','trunk']}),
+  s:['Kéz vállszélesen (pseudo planche: kéz a csípő mellett, vállak a kezek elé dőlve).','Test egy egyenes vonal: has és far feszes.','Engedd le a mellkast a talaj közelébe, könyök kb. 45°-ban a törzshöz.','Told fel nyújtott karig.'],m:'Lógó csípő vagy kiálló fenék.'},
+ aussie_row:{n:'Ausztrál húzódzkodás',fig:gf([fr(SUP,{t:-112,hd:-112,l1n:68,l2n:68,fn:160,l1f:68,l2f:68,ff:160,a1n:180,a2n:180,a1f:180,a2f:180},900,300),fr(SUP,{t:-98,hd:-98,l1n:82,l2n:82,fn:172,l1f:82,l2f:82,ff:172,a1n:-20,a2n:178,a1f:-20,a2f:178},900,600)],{ay:['wrN',-80],ax:'wrN',props:[{t:'hbar',w:30},{t:'mark',k:'back'}],hl:['a1n']}),
+  s:['Rúd derékmagasságban, feküdj alá, sarok a földön, test egyenes.','Húzd a mellkasodat a rúdhoz, lapockák összezárnak.','Lassan vissza nyújtott karig.'],m:'A csípő lelóg, nem marad egyenes a test.'},
+ bulgarian:{n:'Bolgár guggolás',fig:gf([fr(STAND,{l1n:8,l2n:4,l1f:-35,l2f:-80,ff:-70,a1n:5,a2n:5,a1f:5,a2f:5},1000,300),fr(STAND,{t:172,l1n:88,l2n:-18,l1f:2,l2f:-82,ff:-70,a1n:5,a2n:5,a1f:5,a2f:5},1000,600)],{ax:'anN',props:[{t:'boxUnder',j:'toF',w:24}],hl:['l1n','hip']}),
+  s:['Hátsó lábfej a padon, elülső láb kb. egy nagy lépésnyire előtte.','Ereszkedj függőlegesen lefelé, amíg az elülső comb közel vízszintes.','Az elülső sarokból told vissza magad.'],m:'Túl közel álló elülső láb, amitől a sarok felemelkedik.'},
+ slider_curl:{n:'Csúszó lábhajlítás',fig:gf([fr(SUP,{t:-75,hd:-80,l1n:100,l2n:100,fn:180,l1f:100,l2f:100,ff:180},1000,300),fr(SUP,{t:-62,hd:-75,l1n:128,l2n:18,fn:90,l1f:128,l2f:18,ff:90},1000,600)],{props:[{t:'roller',j:'anN',dy:4,r:4}],hl:['l1n']}),
+  s:['Hanyatt, sarok törölközőn / zoknin, emeld fel a csípőt (híd).','A csípő fent marad: húzd be a sarkadat a farod felé.','Lassan csúsztasd ki újra nyújtott lábig.'],m:'A csípő leesik a mozgás közben.'},
+ pistol:{n:'Pisztolyguggolás (dobozra)',fig:gf([fr(STAND,{l1f:30,l2f:30,ff:120,a1n:90,a2n:90,a1f:90,a2f:90},1000,300),fr(SQUAT,{t:145,l1f:82,l2f:86,ff:170,a1n:90,a2n:90,a1f:90,a2f:90},1100,600)],{ax:'anN',props:[{t:'box',x:-34,y:0,w:24,h:-30}],hl:['l1n']}),
+  s:['Állj egy lábon a doboz előtt, a másik láb előre nyújtva, karok előre.','Ereszkedj lassan a dobozra, a térd a lábujjak irányába.','Az egész talpon át told fel magad. Minél alacsonyabb a doboz, annál nehezebb.'],m:'A térd befelé esik, vagy a sarok felemelkedik.'},
+ handstand_wall:{n:'Kézenállás a falnál',fig:gf([fr(STAND,{t:0,hd:0,a1n:0,a2n:0,a1f:0,a2f:0,l1n:180,l2n:180,fn:270,l1f:180,l2f:180,ff:270},1200,800),fr(STAND,{t:3,hd:3,a1n:-3,a2n:-3,a1f:-3,a2f:-3,l1n:182,l2n:182,fn:270,l1f:182,l2f:182,ff:270},1200,800)],{props:[{t:'wallAt',j:'toN',dx:5}],hl:['a1n','trunk']}),
+  s:['Hassal a fal felé: tenyér a földön, sétálj fel a lábaddal a falon, kezek közelítenek a falhoz.','Test egyenes vonal: csukló–váll–csípő–boka, vállak a fül mellett „tolva”.','Tartsd a megadott ideig; lejövetelnél sétálj le a lábaddal.'],m:'Homorú derék, vagy a vállak nincsenek kitolva.'},
+ lsit:{n:'L-ülés',fig:gf([fr(STAND,{a1n:0,a2n:0,a1f:0,a2f:0,l1n:150,l2n:0,fn:90,l1f:150,l2f:0,ff:90},1000,600),fr(STAND,{a1n:0,a2n:0,a1f:0,a2f:0,l1n:92,l2n:92,fn:180,l1f:92,l2f:92,ff:180},1000,1000)],{ay:['wrN',-60],ax:'wrN',props:[{t:'hbar',w:20}],hl:['trunk','l1n']}),
+  s:['Támasz a korláton / páros fogantyún nyújtott karral, vállak lenyomva.','Emeld a térdeket (tuck), majd haladóként nyújtsd ki a lábakat vízszintesig.','Tartsd tisztán, nem bukásig.'],m:'Vállak felhúzódnak, a hát görbül.'},
+ pike_pushup:{n:'Pike fekvőtámasz / HSPU',fig:gf([fr(STAND,{t:35,hd:20,a1n:25,a2n:25,a1f:25,a2f:25,l1n:-55,l2n:-55,fn:30,l1f:-55,l2f:-55,ff:30},900,300),fr(STAND,{t:20,hd:5,a1n:-40,a2n:15,a1f:-40,a2f:15,l1n:-60,l2n:-60,fn:30,l1f:-60,l2f:-60,ff:30},900,600)],{props:[{t:'boxUnder',j:'toN',w:20},{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Kéz a földön, láb a dobozon, csípő magasan a vállak fölött.','Engedd le a fejed a kezek elé (fej–kéz háromszög).','Told vissza magad nyújtott karig.'],m:'A csípő leesik, és sima fekvőtámasz lesz belőle.'},
+ planche_lean:{n:'Planche lean',fig:gf([fr(STAND,{t:100,hd:95,a1n:0,a2n:0,a1f:0,a2f:0,l1n:-80,l2n:-80,fn:-10,l1f:-80,l2f:-80,ff:-10},1000,400),fr(STAND,{t:102,hd:96,a1n:-28,a2n:-28,a1f:-28,a2f:-28,l1n:-78,l2n:-78,fn:-10,l1f:-78,l2f:-78,ff:-10},1000,1200)],{props:[{t:'mark',k:'shoulder'}],hl:['a1n']}),
+  s:['Fekvőtámasz-helyzet, ujjak oldalra vagy hátra fordítva.','Nyújtott könyökkel dőlj előre, amíg a váll a csukló elé kerül; lapockák szétnyitva.','Tartsd; jelöld a kéz helyét, hogy mérhető legyen.'],m:'Behajlik a könyök, vagy lóg a csípő.'},
+};
+const GUIDE_MATCH=[
+ [/csúszó lábhajlít|nordic/i,'slider_curl'],[/ülő lábhajlít|seated leg curl/i,'leg_curl_seated'],[/lábhajlít/i,'leg_curl_lying'],
+ [/mellnyom|chest press/i,'chest_press'],[/ferde.*(gépi|smith)|smith.*ferde/i,'incline_machine'],[/ferde.*(kézisúly|súlyzó)|ferde fekvenyom/i,'incline_db'],
+ [/fekvenyom/i,'bench_bb'],[/fordított tárogat|reverse pec/i,'reverse_pec'],[/tárogat|pec deck/i,'pec_deck'],[/keresztbehúz|crossover/i,'cable_fly_low'],
+ [/gépi vállnyom|vállnyomó gép/i,'shoulder_press_m'],[/vállnyom/i,'db_shoulder_press'],[/gépi oldalemel/i,'lat_raise_machine'],[/oldalemel.*kézisúly|kézisúlyzós oldalemel/i,'lat_raise_db'],[/oldalemel/i,'lat_raise_cable'],
+ [/tricepsz.*fej fölött|fej fölötti tricepsz|francia/i,'oh_triceps'],[/letolás|pushdown|tricepsz gép/i,'pushdown'],
+ [/ülő vádli/i,'calf_seated'],[/vádli/i,'calf_standing'],
+ [/asszisztált húzódzkod/i,'pullup_assist'],[/ausztrál/i,'aussie_row'],[/egyenes rúdon tolódzkod|tolódzkod|\bdip\b/i,'dip'],[/húzódzkod|muscle/i,'pullup'],
+ [/egykezes kábeles lehúz|pullover|egyenes karos/i,'straight_pulldown'],[/mellhez húz|lehúzás|lat pulldown/i,'pulldown'],
+ [/mellkas-támaszos|t-rúd/i,'row_chest'],[/kábeles evez|ülő.*evez/i,'row_cable'],[/face pull/i,'face_pull'],
+ [/bayesian/i,'bayesian'],[/scott|preacher/i,'preacher'],[/curl/i,'incline_curl'],
+ [/lábnyújt/i,'leg_ext'],[/farizom-gép|kickback/i,'glute_kick'],[/abdukci/i,'hip_abd'],
+ [/hack/i,'hack'],[/lábtol/i,'leg_press'],[/egylábas csípőemel/i,'sl_hip_thrust'],[/hip thrust|csípőemel/i,'hip_thrust'],[/csípőfeszít|hip extension/i,'hip_ext45'],
+ [/román felhúz|\brdl\b/i,'rdl'],[/crunch/i,'cable_crunch'],[/bolgár/i,'bulgarian'],[/pisztoly/i,'pistol'],[/guggol|squat/i,'squat_bb'],
+ [/pike|hspu/i,'pike_pushup'],[/pseudo planche|fekvőtámasz/i,'pushup'],[/planche/i,'planche_lean'],[/kézenáll/i,'handstand_wall'],[/l-ül/i,'lsit'],
+];
+function guideKey(e){ const nm=(e&&e.name)||''; if(!nm||/bemelegítés/i.test(nm)) return null; for(const [re,k] of GUIDE_MATCH) if(re.test(nm)) return k; return null; }
+for(const k in GUIDES){ FIGS['g_'+k]=GUIDES[k].fig; }
+function figPropExt(pr,J){
+  const P=J.pelvis, N=J.neck, vx=N[0]-P[0], vy=N[1]-P[1], ln=Math.hypot(vx,vy)||1, bx=vy/ln, by=-vx/ln; // bx,by: a hát felé mutató merőleges
+  const f=v=>v.toFixed(1), pt=j=>J[j||'haN'];
+  switch(pr.t){
+    case 'seat': return `<path class="mch" d="M${f(P[0]-17)} ${f(P[1]+5)}H${f(P[0]+14)}"/><path class="mchl" d="M${f(P[0]-2)} ${f(P[1]+7)}V0M${f(P[0]-14)} 0H${f(P[0]+12)}"/>`;
+    case 'back': { const L=pr.len||1.08, o=6; return `<path class="mch" d="M${f(P[0]+bx*o-vx*.06)} ${f(P[1]+by*o-vy*.06)}L${f(P[0]+bx*o+vx*L)} ${f(P[1]+by*o+vy*L)}"/>`; }
+    case 'stack': { const x=(pr.x||0)+P[0]*0, h=pr.h||118; let s=`<rect class="mchf" x="${x}" y="${-h}" width="16" height="${h}" rx="2"/>`; for(let i=0;i<6;i++) s+=`<path class="mchl" d="M${x+2} ${-6-i*5}h12"/>`; return s+`<circle class="mchf" cx="${x+8}" cy="${-h+6}" r="4"/>`; }
+    case 'cable': { const a=pt(pr.a); return `<path class="cab" d="M${f(a[0])} ${f(a[1])}L${pr.x} ${pr.y}"/><circle class="mchf" cx="${pr.x}" cy="${pr.y}" r="3.5"/>`; }
+    case 'handle': { const a=pt(pr.j); return `<path class="mch" d="M${f(a[0])} ${f(a[1]-5)}V${f(a[1]+5)}"/>`; }
+    case 'hbar': { const a=pt(pr.j||'wrN'), w=(pr.w||34)/2; return `<path class="mch" d="M${f(a[0]-w)} ${f(a[1])}H${f(a[0]+w)}"/>`; }
+    case 'plate': { const a=pt(pr.j); const c=[a[0]+(pr.dx||0),a[1]+(pr.dy||0)]; return `<circle class="mchf" cx="${f(c[0])}" cy="${f(c[1])}" r="10"/><circle class="mchl" cx="${f(c[0])}" cy="${f(c[1])}" r="2.5"/>`; }
+    case 'db': { const a=pt(pr.j); return `<rect class="mchf" x="${f(a[0]-7)}" y="${f(a[1]-3.5)}" width="14" height="7" rx="2"/>`; }
+    case 'plat': { const a=J[pr.a], b=J[pr.b], dx=b[0]-a[0], dy=b[1]-a[1], l=Math.hypot(dx,dy)||1, e=pr.ext||5, px=-dy/l*2.5, py=dx/l*2.5; return `<path class="mch" d="M${f(a[0]-dx/l*e+px)} ${f(a[1]-dy/l*e+py)}L${f(b[0]+dx/l*e+px)} ${f(b[1]+dy/l*e+py)}"/>`; }
+    case 'benchT': { const x0=Math.min(P[0],J.head[0])-4, x1=Math.max(P[0],J.head[0],J.knN?Math.min(J.knN[0],P[0]+10):P[0])+6, top=Math.max(P[1],N[1])+3.5; return `<rect class="mchf" x="${f(x0)}" y="${f(top)}" width="${f(x1-x0)}" height="5" rx="2"/><path class="mchl" d="M${f(x0+6)} ${f(top+5)}V0M${f(x1-6)} ${f(top+5)}V0"/>`; }
+    case 'chestpad': { const c=[P[0]-bx*9+vx*.62,P[1]-by*9+vy*.62]; return `<path class="mch" d="M${f(c[0]-vx*.28)} ${f(c[1]-vy*.28)}L${f(c[0]+vx*.28)} ${f(c[1]+vy*.28)}"/><path class="mchl" d="M${f(c[0]-vx*.05)} ${f(c[1]-vy*.05)}L${f(c[0]+12)} 0"/>`; }
+    case 'armpad': { const s=J.shN, e=J.elN; return `<path class="mch" d="M${f(s[0]+2)} ${f(s[1]+6)}L${f(e[0]+2)} ${f(e[1]+6)}"/><path class="mchl" d="M${f((s[0]+e[0])/2+2)} ${f((s[1]+e[1])/2+8)}V0"/>`; }
+    case 'mark': { const k=pr.k; const c= k==='chest'? [P[0]+vx*.74-bx*5,P[1]+vy*.74-by*5] : k==='back'? [P[0]+vx*.62+bx*4,P[1]+vy*.62+by*4] : J.shN; return `<circle class="hlc" cx="${f(c[0])}" cy="${f(c[1])}" r="${k==='shoulder'?6:7}"/>`; }
+  }
+  return '';
+}
+function guideTips(e,orig){
+  const k=guideKey(e); if(!k) return orig;
+  const G=GUIDES[k], open=ui.openD&&ui.openD['tp'+e.id];
+  const alt= e.alt&&e.alt!=='—'? `<p class="muted small" style="margin:6px 0 0">${e.cali?'Progresszió / könnyítés':'Alternatíva'}: ${esc(e.alt)}</p>`:'';
+  return `<details class="more" data-od="tp${e.id}" ${open?'open':''} style="flex-basis:100%"><summary>Hogyan csináld? · ábra${e.alt&&e.alt!=='—'?(e.cali?' · progresszió':' · alternatíva'):''}</summary>
+    <div class="gwrap"><div class="gfig" data-k="${k}">${open?figHTML('g_'+k):''}</div>
+    <ol class="gsteps">${G.s.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>
+    ${G.m?`<p class="small" style="margin:6px 0 0"><b>Gyakori hiba:</b> ${esc(G.m)}</p>`:''}
+    ${e.tip?`<p class="small muted" style="margin:6px 0 0"><b>Miért ez a gyakorlat?</b> ${esc(e.tip)}</p>`:''}${alt}
+    ${G.n&&G.n.toLowerCase()!==String(e.name).toLowerCase()?`<p class="small muted" style="margin:6px 0 0">Ábra: ${esc(G.n)}</p>`:''}</div></details>`;
+}
+function guideThumb(e){
+  const k=guideKey(e); if(!k) return '';
+  return `<button class="gthumb" data-act="gopen" data-ex="${esc(e.id)}" aria-label="Végrehajtás és ábra">${figHTML('g_'+k)}</button>`;
+}
+
+if(FIGS.scappull) FIGS.scappull.noFloor=1;
+document.addEventListener('toggle',ev=>{ const d=ev.target; if(d&&d.open&&d.querySelector){ const g=d.querySelector('.gfig'); if(g&&!g.firstElementChild&&g.dataset.k){ g.innerHTML=figHTML('g_'+g.dataset.k); figStart(); } } },true);
+
 /* ===================== ACTIONS ===================== */
 function startSession(day){
   const key=curKey(), p=PROGRAMS[key], ps=PS(), slot=curSlot(key);
@@ -2567,6 +2764,7 @@ document.addEventListener('click',ev=>{
   const act=b.dataset.act, s=S.settings.activeId&&S.sessions[S.settings.activeId];
   if(mobAction(act,b)) return;
   if(adaptAction(act,b,s)) return;
+  if(act==='gopen'){ ui.openD=ui.openD||{}; const k='tp'+b.dataset.ex; ui.openD[k]=!ui.openD[k]; render(); const el=document.querySelector(`[data-od="${k}"]`); if(el&&ui.openD[k]) el.scrollIntoView({block:'nearest',behavior:'smooth'}); return; }
   if(fAction(act,b,s)) return;
   if(act.startsWith('ed-')&&ui.edit){ editAction(act,b); return; }
   if(act==='ai-open'){ ui.ai={form:aiDefaults(),busy:false,err:null,ctl:null}; ui.edit=null; ui.confirm=null; render(); window.scrollTo(0,0); return; }
