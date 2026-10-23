@@ -3,7 +3,7 @@
 // a szerverrel ellenőrzi, van-e új verzió, és ha igen, szól az appnak („Új verzió érhető el”).
 const CACHE = 'edzesnaplo-feaefb84-2';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
-  './icon-180.png', './icon-192.png', './icon-512.png'];
+  './icon-180.png', './icon-192.png', './icon-512.png', './body.bin'];
 const PAGE = new URL('./index.html', self.location).href;
 
 self.addEventListener('install', e => {

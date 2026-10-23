@@ -37,6 +37,7 @@ Telefonos, offline is működő PWA; GitHub Pages teszi ki (`main` ág), a telef
 - **AI-program beillesztés** 1737–1849: `aiPrompt`, `draftFromAI` (formátum-ellenőrzés), `aiGenerate`.
 - **Mobilitás** 1850–2236: `AREAS`, `MLIB` (gyakorlatok), `MTESTS` (felmérések), `genRoutine`, `startMob`, `finishMob`, `mobAction`.
 - **Pálcikaember-ábrák** 2237–2411: pózok (`STAND`, `SQUAT`…), `FIGS`, `figFK`, `figSVG`, `figHTML`, `figTick`.
+- **3D test az útmutatókban**: `body.bin` = MakeHuman (CC0) izmos alapháló + csontváz + izom-címkék (kb. 210 KB tömörítve, a `sw.js` előre tárolja). `bodyLoad`, `b5Pose` (2D póz → csontforgatás + két-csontos IK a kéz/láb érintkezéshez), `b5Draw` (szoftveres raszterizálás). Ha a fájl nem töltődik be, `b4Draw` (ellipszoid-modell) a tartalék. Izmok: `MUS` (gyakorlat → fő;segítő), gép/eszköz: `EQ`. A `body.bin` újragenerálása: MakeHuman repóból, a szkriptek nincsenek a repóban.
 - **Gond-jelzés + személyes módosítás** 2412–2563: `issueBox`, `lastIssueFor`, `applyMods`, `modBox`, `setSwap`, `adaptAction`.
 - **Gyakorlat-útmutatók** 2564–2774: `GUIDES`, `GUIDE_MATCH` (regex-sorrend számít: szűkebb előbb), `guideKey`, `guideThumb`. Új gyakorlatnévnél ellenőrizd: `guideKey({name})`.
 - **Edzés indítása/lezárása** 2775–2790: `startSession`, `finishSession`.
