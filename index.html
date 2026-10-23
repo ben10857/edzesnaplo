@@ -2494,7 +2494,7 @@ function aMuscle(m,J,T){ // → [{s:szegmens,d:útvonal}]
 }
 // ízületi szögek (könyök, térd, csípő, váll) – a mozgásirány-nyilakhoz
 function aJoints(J){ return [
-  {n:'el',a:J.shN,b:J.elN,c:J.wrN},{n:'kn',a:J.hipN,b:J.knN,c:J.anN},{n:'hp',a:J.neck,b:J.pelvis,c:J.knN},{n:'sh',a:J.pelvis,b:J.neck,c:J.elN}]; }
+  {n:'el',a:J.shN,b:J.elN,c:J.wrN},{n:'kn',a:J.hipN,b:J.knN,c:J.anN},{n:'hp',a:J.neck,b:J.hipN,c:J.knN},{n:'sh',a:J.hipN,b:J.shN,c:J.elN}]; }
 const aAng=j=>{ const ux=j.a[0]-j.b[0],uy=j.a[1]-j.b[1],wx=j.c[0]-j.b[0],wy=j.c[1]-j.b[1]; return Math.atan2(ux*wy-uy*wx,ux*wx+uy*wy)*180/Math.PI; };
 function aJointInfo(fig){ // melyik ízület mozog érdemben, és merre hajlik (stabil előjel)
   if(fig._ji) return fig._ji;
@@ -2549,80 +2549,84 @@ function anaSVG(J,fig,J1){
 }
 let aCid=0; const ALLMUS=['abs','chest','lats','traps','low','glutes','delts','biceps','triceps','forearms','quads','hams','calves','tib'];
 
-/* ===== 3D izmos modell: ellipszoidokból épül, saját (függőségmentes) sugárkövető árnyékolóval ===== */
-const B3K=.34, B3L=[.42,-.55,.72];
-const b3n=v=>{ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; };
-const b3x=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
-function b3J(J,fig){ // 2D csukló-pontok → 3D (oldalnézetben a közeli/távoli oldal ±z)
-  const o={}, fv=!!fig.fv;
-  for(const k in J){ if(k==='_c') continue; let z=0;
-    if(!fv){ const s=k.endsWith('N')?1:k.endsWith('F')?-1:0; z=/^(sh|el|wr|ha)/.test(k)?13*s:/^(hip|kn|an|to)/.test(k)?8*s:0; }
-    o[k]=[J[k][0],J[k][1],z]; }
-  return o;
-}
-function b3Build(J,fig){
-  const J3=b3J(J,fig), fv=!!fig.fv, LB=fv?[1,0,0]:[0,0,1], out=[];
-  const nrm=u=>fv?[0,0,1]:b3n([u[1],-u[0],0]);
-  const mk=(c,u,n,r,tag,sid,far)=>{ const w=b3n(b3x(u,n)); out.push({c,A:[u,n,w],r,tag,sid,far:!!far,R:Math.max(r[0],r[1],r[2])}); };
-  const cone=(A,B,ra,rb,far)=>out.push({cone:1,a:A,b:B,ra,rb,tag:'core',sid:0,far:!!far,R:Math.max(ra,rb)+Math.hypot(B[0]-A[0],B[1]-A[1],B[2]-A[2])/2,mid:[(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2]});
-  const seg=(a,b,t,f,l,zs,ra,rf,rl,tag,sid,far)=>{ if(tag!=='core'){ rf*=1.1; rl*=1.1; f*=.98; l*=1.05; } const A=J3[a],B=J3[b],u=b3n([B[0]-A[0],B[1]-A[1],B[2]-A[2]]),n=nrm(u);
-    const c=[A[0]+(B[0]-A[0])*t+n[0]*f+LB[0]*l*zs,A[1]+(B[1]-A[1])*t+n[1]*f+LB[1]*l*zs,A[2]+(B[2]-A[2])*t+n[2]*f+LB[2]*l*zs]; mk(c,u,n,[ra,rf,rl],tag,sid,far); };
-  // törzs: a gerinc-görbe mentén
+/* ===== 3D izmos modell (v2): ellipszoid + lekerekített kúp primitívek, SIMA összeolvasztás (soft-max mélység/normál/szín),
+   képtér-árnyékolás (ambient occlusion) a gödrökben → agyag-szobor hatás. Függőség nélkül, offline. ===== */
+const B4K=.42, B4L=[.45,-.7,.62], B4F=[-.75,.1,.6], B4S=1.3;   // ferde vetítés, fő-fény, derítő fény, összeolvasztás lágysága
+const b4n=v=>{ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; };
+const b4x=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const B4Z={sh:15,el:15,wr:15,ha:15,hip:8.5,kn:8.5,an:8.5,to:8.5};
+function b4J(J,fig){ const o={}, fv=!!fig.fv;
+  for(const k in J){ if(k==='_c') continue; let z=0; if(!fv){ const s=k.endsWith('N')?1:k.endsWith('F')?-1:0, b=k.replace(/[NF]$/,''); z=(B4Z[b]||0)*s; } o[k]=[J[k][0],J[k][1],z]; }
+  return o; }
+function b4Proj(J,fig){ if(fig.fv) return J; const o={...J}; for(const k in J){ if(k==='_c') continue; const s=k.endsWith('N')?1:k.endsWith('F')?-1:0, b=k.replace(/[NF]$/,''); o[k]=[J[k][0]+B4K*(B4Z[b]||0)*s,J[k][1]]; } return o; }
+function b4Build(J,fig){
+  const J3=b4J(J,fig), fv=!!fig.fv, LB=fv?[1,0,0]:[0,0,1], out=[];
+  const nrm=u=>fv?[0,0,1]:b4n([u[1],-u[0],0]);
+  const ell=(c,u,n,r,tag,sid,far)=>{ const w=b4n(b4x(u,n)); out.push({c,A:[u,n,w],r,tag,sid,far:!!far,R:Math.max(r[0],r[1],r[2])}); };
+  const cone=(A,B,ra,rb,far,tag)=>out.push({cone:1,a:A,b:B,ra,rb,tag:tag||'skin',sid:0,far:!!far,R:Math.max(ra,rb)+Math.hypot(B[0]-A[0],B[1]-A[1],B[2]-A[2])/2,mid:[(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2]});
+  const P=(a,b,t,f,l,zs)=>{ const A=J3[a],B=J3[b],u=b4n([B[0]-A[0],B[1]-A[1],B[2]-A[2]]),n=nrm(u); return {u,n,c:[A[0]+(B[0]-A[0])*t+n[0]*f+LB[0]*l*zs,A[1]+(B[1]-A[1])*t+n[1]*f+LB[1]*l*zs,A[2]+(B[2]-A[2])*t+n[2]*f+LB[2]*l*zs]}; };
+  const seg=(a,b,t,f,l,zs,ra,rf,rl,tag,sid,far)=>{ const p=P(a,b,t,f,l,zs); ell(p.c,p.u,p.n,[ra,rf,rl],tag,sid,far); };
   const T=aTorso(J);
-  const tor=(t,f,l,zs,ra,rf,rl,tag,sid)=>{ if(tag!=='core'){ rf*=1.15; rl*=1.2; f*=1.1; l*=1.25; } else { rl*=1.25; } const p=T.pt(t),nn=T.nm(t),u=b3n([nn[1],-nn[0],0]), n=fv?[0,0,1]:[nn[0],nn[1],0];
-    mk([p[0]+n[0]*f+LB[0]*l*zs,p[1]+n[1]*f+LB[1]*l*zs,n[2]*f+LB[2]*l*zs],u,n,[ra,rf,rl],tag,sid); };
+  const tor=(t,f,l,zs,ra,rf,rl,tag,sid)=>{ const p=T.pt(t),nn=T.nm(t),u=b4n([nn[1],-nn[0],0]),n=fv?[0,0,1]:[nn[0],nn[1],0];
+    ell([p[0]+n[0]*f+LB[0]*l*zs,p[1]+n[1]*f+LB[1]*l*zs,n[2]*f+LB[2]*l*zs],u,n,[ra,rf,rl],tag,sid,false); };
   let id=1;
-  // fej, nyak
-  { const h=J3.head,nk=J3.neck,u=b3n([h[0]-nk[0],h[1]-nk[1],0]),q=fv?[0,0,1]:b3n([-u[1],u[0],0]);
-    mk([nk[0]+u[0]*3.4,nk[1]+u[1]*3.4,0],u,q,[6.2,3.7,3.9],'core',0);
-    mk([h[0]-u[0]*.6,h[1]-u[1]*.6,0],u,q,[9,7.8,6.8],'core',0);
-    mk([h[0]+q[0]*7.8,h[1]+q[1]*7.8,q[2]*7.8],u,q,[1.9,1.5,1.4],'core',0);
-    mk([h[0]-u[0]*5.4-q[0]*2.4,h[1]-u[1]*5.4-q[1]*2.4,0],u,q,[3.6,6.2,6.3],'core',0); }
-  // törzs
-  tor(.05,0,0,1,9,7.6,10.8,'core',0); tor(.3,0,0,1,12,7.2,9,'core',0); tor(.68,0,0,1,15,9.6,12.4,'core',0);
-  tor(.9,0,0,1,7,6.4,8.5,'core',0);
+  // fej + nyak
+  { const h=J3.head,nk=J3.neck,u=b4n([h[0]-nk[0],h[1]-nk[1],0]),q=fv?[0,0,1]:b4n([-u[1],u[0],0]), at=(a,b)=>[h[0]+u[0]*a+q[0]*b,h[1]+u[1]*a+q[1]*b,q[2]*b];
+    cone([nk[0]-u[0]*2,nk[1]-u[1]*2,0],at(-5,-.5),5.4,4.4,false);
+    ell(at(.6,-.8),u,q,[9.6,9.2,7.6],'skin',0); ell(at(-5,3),u,q,[4.6,4.6,5.6],'skin',0);
+    ell(at(-1.2,8.4),u,q,[2.4,1.6,1.2],'skin',0); ell(at(2.6,7.4),u,q,[1.6,1.6,4.8],'skin',0); 
+    tor(.985,1.6,4.2,1,6.8,2,1.8,'skin',0); tor(.985,1.6,4.2,-1,6.8,2,1.8,'skin',0); }
+  // törzs-mag
+  tor(.04,0,0,1,9,8.8,14.6,'skin',0); tor(.3,0,0,1,11,8,12.6,'skin',0); tor(.64,.4,0,1,14,10.2,15.6,'skin',0); tor(.9,-.6,0,1,6,7.6,17.6,'skin',0);
   for(const zs of [1,-1]){
-    tor(.74,7.4,4.9,zs,6,3.4,5.4,'chest',id++); tor(.66,6.8,5,zs,4.5,2.6,4.4,'chest',id++);
-    for(const t of [.13,.26,.39,.5]) tor(t,6.6,2.4,zs,4.1,1.9,2.4,'abs',id++);
-    tor(.34,.6,8.9,zs,8.5,4.4,2.4,'abs',id++);
-    tor(.5,-5.4,7.4,zs,14,2.6,5.6,'lats',id++); tor(.35,-5.2,5.5,zs,9,2.4,3.6,'lats',id++);
-    tor(.88,-5.4,3.6,zs,7,2.6,4.8,'traps',id++); tor(.99,-2.4,4.8,zs,4.2,3,3.6,'traps',id++);
-    tor(.22,-6.4,2.8,zs,11,2.6,2.7,'low',id++);
-    tor(.04,-6.6,4.6,zs,7,6.4,6.2,'glutes',id++);
-    tor(.1,-3,8.2,zs,5,3.8,4,'glutes',id++);
+    // mell
+    tor(.7,7.4,6.6,zs,7,3.6,8,'chest',id++); tor(.82,6.4,7.6,zs,4.2,3,7,'chest',id);
+    // has: egyenes hasizom 4 sor + ferde
+    for(const t of [.14,.26,.38,.5]) tor(t,6.9,2.8,zs,4.2,1.9,3,'abs',id++);
+    tor(.28,3.4,10.4,zs,9,4,3.6,'abs',id++);
+    tor(.57,3.6,11.6,zs,7,2.4,2.6,'serr',id++);
+    // hát
+    tor(.5,-5.2,10.6,zs,13,3,5.2,'lats',id++); tor(.33,-6.4,7.6,zs,9,2.4,4,'lats',id);
+    tor(.97,-2.6,6.6,zs,4.4,3.6,6.4,'traps',id++); tor(.82,-7.2,4.2,zs,7.4,2.6,5,'traps',id);
+    tor(.24,-8,3.2,zs,12,2.8,3,'low',id++);
+    tor(.04,-6.4,6.2,zs,8.6,4.6,7,'glutes',id++); tor(.12,-2.4,11.6,zs,5.4,4,3.4,'glutes',id);
   }
-  // végtagok
-  for(const s of ['N','F']){ const zs=s==='N'?1:-1, far=s==='F', H='hip'+s,K='kn'+s,A='an'+s,Tt='to'+s,S='sh'+s,E='el'+s,W='wr'+s,Hd='ha'+s;
+  for(const s of ['N','F']){ const zs=s==='N'?1:-1, far=s==='F', H='hip'+s,K='kn'+s,A='an'+s,To='to'+s,S='sh'+s,E='el'+s,W='wr'+s,Hd='ha'+s;
     // comb
-    cone(J3[H],J3[K],8.2,5.4,far);
-    seg(H,K,.5,4.6,0,zs,17,3.5,3.7,'quads',id++,far); seg(H,K,.46,2.4,4.3,zs,16,4,3.7,'quads',id++,far); seg(H,K,.76,2.6,-3.7,zs,9.5,3.7,3.4,'quads',id++,far);
-    seg(H,K,.5,-4.2,2.7,zs,16.5,3.7,3.2,'hams',id++,far); seg(H,K,.5,-4.2,-2.7,zs,16.5,3.7,3.2,'hams',id++,far);
-    seg(H,K,.02,-3.6,0,zs,6.5,6.2,6,'glutes',id++,far);
-    cone(J3[K],J3[A],5.4,3.3,far);
-    seg(K,A,.27,-3.8,-2.4,zs,10.5,3.7,2.7,'calves',id++,far); seg(K,A,.27,-3.8,2.4,zs,10.5,3.7,2.7,'calves',id++,far);
-    seg(K,A,.52,-3.3,0,zs,11,3,3.4,'calves',id++,far); seg(K,A,.4,3.1,.6,zs,12,1.9,2.1,'tib',id++,far);
-    { const a=J3[A],b=J3[Tt],u=b3n([b[0]-a[0],b[1]-a[1],0]); seg(A,Tt,.5,0,0,zs,6.2,3.1,3.2,'core',0,far); }
-    // kar
-    cone(J3[S],J3[E],5.2,3.9,far); cone(J3[E],J3[W],3.9,2.6,far);
-    seg(S,E,.5,2.6,0,zs,11,3,3.2,'biceps',id++,far); seg(S,E,.5,-2.6,-.6,zs,11,3,3,'triceps',id++,far); seg(S,E,.52,-1.7,2.4,zs,9,2.6,2.6,'triceps',id++,far);
-    seg(S,E,.1,0,0,zs,7.2,5.8,5.9,'delts',id++,far); seg(S,E,.14,3.1,.6,zs,6,3.2,4,'delts',id++,far); seg(S,E,.14,-3.1,.6,zs,6,3.2,4,'delts',id++,far);
-    seg(E,W,.3,1.3,0,zs,9,3.4,3.3,'forearms',id++,far); seg(E,W,.34,-1.4,0,zs,9,3.1,3.2,'forearms',id++,far);
-    seg(W,Hd,.5,0,0,zs,4.8,2.5,2.9,'core',0,far);
-    
+    cone(J3[H],J3[K],9,5.4,far);
+    seg(H,K,.5,3.9,0,zs,17,3.7,4,'quads',id++,far); seg(H,K,.46,1.2,4,zs,18,4.4,4,'quads',id,far); seg(H,K,.8,2,-3.4,zs,8.5,4,3.7,'quads',id,far);
+    seg(H,K,.36,0,-5,zs,13,4,3.2,'add',id++,far);
+    seg(H,K,.5,-3.6,2.4,zs,17,3.9,3.4,'hams',id++,far); seg(H,K,.5,-3.6,-2.4,zs,17,3.9,3.4,'hams',id,far);
+    seg(H,K,1,4.4,0,zs,2.4,1.5,2.4,'skin',0,far);
+    // lábszár + lábfej
+    cone(J3[K],J3[A],5.3,3.1,far);
+    seg(K,A,.28,-3,-2.2,zs,10,4,3.2,'calves',id++,far); seg(K,A,.26,-2.9,2.3,zs,9.4,3.7,3.1,'calves',id,far); seg(K,A,.56,-2.6,0,zs,11,2.6,3.6,'calves',id,far);
+    seg(K,A,.38,2.6,1.4,zs,12,2,2.1,'tib',id++,far);
+    { const p=P(A,To,.45,0,0,zs); ell(p.c,p.u,p.n,[8,2.6,4],'skin',0,far); const q=P(A,To,-.05,-1.2,0,zs); ell(q.c,q.u,q.n,[3.4,3,3],'skin',0,far); }
+    // váll + kar
+    seg(S,E,.06,0,.6,zs,7.2,6.6,7,'delts',id++,far); seg(S,E,.14,3.2,.6,zs,6.6,3.4,4.6,'delts',id,far); seg(S,E,.14,-3.2,.6,zs,6.6,3.4,4.6,'delts',id,far);
+    cone(J3[S],J3[E],5.4,4,far);
+    seg(S,E,.52,2.9,0,zs,10.5,3.6,3.6,'biceps',id++,far); seg(S,E,.78,1.4,1.8,zs,5,2.4,2.4,'biceps',id,far);
+    seg(S,E,.46,-3,-.6,zs,11,3.6,3.4,'triceps',id++,far); seg(S,E,.46,-1.8,2.6,zs,8.6,2.7,2.5,'triceps',id,far);
+    cone(J3[E],J3[W],4.1,2.5,far);
+    seg(E,W,.24,1.6,1.3,zs,8,2.9,2.7,'forearms',id++,far); seg(E,W,.3,.4,-1.6,zs,8,2.7,2.7,'forearms',id,far); seg(E,W,.34,-1.3,1.3,zs,8,2.5,2.6,'forearms',id,far);
+    { const p=P(W,Hd,.45,0,0,zs); ell(p.c,p.u,p.n,[4.6,1.7,3.4],'skin',0,far); const q=P(W,Hd,1.25,0,0,zs); ell(q.c,q.u,q.n,[3,1.4,3],'skin',0,far); const r=P(W,Hd,.45,1.6,-2.4,zs); ell(r.c,r.u,r.n,[3,1.2,1.2],'skin',0,far); }
   }
   return out;
 }
-function b3Draw(ctx,W,H,box,J,fig){
-  const els=b3Build(J,fig), m=fig.mus||{main:[],sec:[]}, sc=W/box[2], Z0=300, K=B3K, inv=1/sc;
-  const img=ctx.createImageData(W,H), px=img.data, zb=new Float32Array(W*H).fill(-1e9), ib=new Int16Array(W*H).fill(-1), nb=new Float32Array(W*H*3);
-  const L=b3n(B3L), HV=b3n([L[0],L[1],L[2]+1]);
+const B4C={skin:[214,211,206],m:[236,112,40],s:[232,170,124]};
+function b4Draw(ctx,W,H,box,J,fig){
+  const els=b4Build(J,fig), mm=fig.mus||{main:[],sec:[]}, sc=W/box[2], Z0=300, K=B4K, inv=1/sc, kk=B4S;
+  const N=W*H, M=new Float32Array(N).fill(-1e9), Sm=new Float32Array(N), NX=new Float32Array(N), NY=new Float32Array(N), NZ=new Float32Array(N), CR=new Float32Array(N), CG=new Float32Array(N), CB=new Float32Array(N);
   const rl=Math.hypot(K,1), rdx=K/rl, rdz=-1/rl;
-  els.forEach((e,i)=>{ const mn=m.main.includes(e.tag), sc2=m.sec.includes(e.tag);
-    let c= mn?[240,104,26]: sc2?[228,152,100]: e.tag==='core'?[196,200,208]:[212,215,221];
-    if(e.far) c=c.map(v=>v*.74); e.col=c; e.hot=mn; e.i=i;
-    const cc=e.cone?e.mid:e.c; e.cx=(cc[0]+K*cc[2]-box[0])*sc; e.cy=(cc[1]-box[1])*sc; e.pr=(e.R*(1+K)+1)*sc; });
+  for(const e of els){ const c= mm.main.includes(e.tag)?B4C.m: mm.sec.includes(e.tag)?B4C.s: B4C.skin, d=e.far?.8:1; e.col=[c[0]*d,c[1]*d,c[2]*d];
+    const cc=e.cone?e.mid:e.c; e.cx=(cc[0]+K*cc[2]-box[0])*sc; e.cy=(cc[1]-box[1])*sc; e.pr=(e.R*(1+K)+1)*sc; }
+  const acc=(k,z,X,Y,Z,col)=>{ const m=M[k];
+    if(m<-1e8){ M[k]=z; Sm[k]=1; NX[k]=X; NY[k]=Y; NZ[k]=Z; CR[k]=col[0]; CG[k]=col[1]; CB[k]=col[2]; return; }
+    if(z>m){ const f=Math.exp((m-z)/kk); Sm[k]=Sm[k]*f+1; NX[k]=NX[k]*f+X; NY[k]=NY[k]*f+Y; NZ[k]=NZ[k]*f+Z; CR[k]=CR[k]*f+col[0]; CG[k]=CG[k]*f+col[1]; CB[k]=CB[k]*f+col[2]; M[k]=z; }
+    else { const w=Math.exp((z-m)/kk); if(w<.002) return; Sm[k]+=w; NX[k]+=X*w; NY[k]+=Y*w; NZ[k]+=Z*w; CR[k]+=col[0]*w; CG[k]+=col[1]*w; CB[k]+=col[2]*w; } };
   for(const e of els){
-    const x0=Math.max(0,Math.floor(e.cx-e.pr)),x1=Math.min(W-1,Math.ceil(e.cx+e.pr)),y0=Math.max(0,Math.floor(e.cy-e.pr)),y1=Math.min(H-1,Math.ceil(e.cy+e.pr));
+    const x0=Math.max(0,Math.floor(e.cx-e.pr)),x1=Math.min(W-1,Math.ceil(e.cx+e.pr)),y0=Math.max(0,Math.floor(e.cy-e.pr)),y1=Math.min(H-1,Math.ceil(e.cy+e.pr)), col=e.col;
     if(!e.cone){
       const [u,v,w]=e.A,r=e.r,ir0=1/r[0],ir1=1/r[1],ir2=1/r[2], c=e.c;
       const D0=(-K*u[0]+u[2])*ir0, D1=(-K*v[0]+v[2])*ir1, D2=(-K*w[0]+w[2])*ir2, a=D0*D0+D1*D1+D2*D2;
@@ -2630,10 +2634,9 @@ function b3Draw(ctx,W,H,box,J,fig){
         for(let x=x0;x<=x1;x++){ const qx=x*inv+box[0]-c[0], qz=-c[2];
           const Q0=(u[0]*qx+u[1]*qy+u[2]*qz)*ir0, Q1=(v[0]*qx+v[1]*qy+v[2]*qz)*ir1, Q2=(w[0]*qx+w[1]*qy+w[2]*qz)*ir2;
           const b=Q0*D0+Q1*D1+Q2*D2, cc=Q0*Q0+Q1*Q1+Q2*Q2-1, disc=b*b-a*cc; if(disc<=0) continue;
-          const t=(-b+Math.sqrt(disc))/a, k=y*W+x; if(t<=zb[k]) continue; zb[k]=t; ib[k]=e.i;
-          const n0=(Q0+D0*t)*ir0, n1=(Q1+D1*t)*ir1, n2=(Q2+D2*t)*ir2;
+          const t=(-b+Math.sqrt(disc))/a, n0=(Q0+D0*t)*ir0, n1=(Q1+D1*t)*ir1, n2=(Q2+D2*t)*ir2;
           let X=u[0]*n0+v[0]*n1+w[0]*n2, Y=u[1]*n0+v[1]*n1+w[1]*n2, Z=u[2]*n0+v[2]*n1+w[2]*n2; const l=1/(Math.hypot(X,Y,Z)||1);
-          nb[k*3]=X*l; nb[k*3+1]=Y*l; nb[k*3+2]=Z*l; } }
+          acc(y*W+x,t,X*l,Y*l,Z*l,col); } }
     } else {
       const pa=e.a,pb=e.b,ra=e.ra,rb=e.rb, bx=pb[0]-pa[0],by=pb[1]-pa[1],bz=pb[2]-pa[2], rr=ra-rb, m0=bx*bx+by*by+bz*bz, m2=bx*rdx+bz*rdz, d2=m0-rr*rr, k2=d2-m2*m2;
       for(let y=y0;y<=y1;y++){ const oy=y*inv+box[1]-pa[1];
@@ -2642,27 +2645,30 @@ function b3Draw(ctx,W,H,box,J,fig){
           const k1=d2*m3-m1*m2+m2*rr*ra, k0=d2*m5-m1*m1+m1*rr*ra*2-m0*ra*ra, hh=k1*k1-k0*k2; let t=-1;
           if(hh>=0&&Math.abs(k2)>1e-9){ const tt=(-Math.sqrt(hh)-k1)/k2, yy=m1-ra*rr+tt*m2; if(yy>0&&yy<d2) t=tt; }
           if(t<0){ const h1=m3*m3-m5+ra*ra, h2=m6*m6-m7+rb*rb; let tc=1e20; if(h1>0) tc=-m3-Math.sqrt(h1); if(h2>0){ const t2=-m6-Math.sqrt(h2); if(t2<tc) tc=t2; } if(tc>1e19) continue; t=tc; }
-          const zz=Z0+rdz*t, k=y*W+x; if(zz<=zb[k]) continue; zb[k]=zz; ib[k]=e.i;
-          const Px=ox+rdx*t, Py=oy+t*0, Pz=oz+rdz*t, hq=Math.max(0,Math.min(1,(Px*bx+Py*by+Pz*bz)/m0));
-          const X=Px-bx*hq, Y=Py-by*hq, Z=Pz-bz*hq, l=1/(Math.hypot(X,Y,Z)||1); nb[k*3]=X*l; nb[k*3+1]=Y*l; nb[k*3+2]=Z*l; } }
+          const Px=ox+rdx*t, Py=oy, Pz=oz+rdz*t, hq=Math.max(0,Math.min(1,(Px*bx+Py*by+Pz*bz)/m0));
+          const X=Px-bx*hq, Y=Py-by*hq, Z=Pz-bz*hq, l=1/(Math.hypot(X,Y,Z)||1);
+          acc(y*W+x,Z0+rdz*t,X*l,Y*l,Z*l,col); } }
     } }
-  const rad=Math.max(1,Math.round(sc*.75));
-  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const k=y*W+x, j=k*4; if(ib[k]<0){ px[j+3]=0; continue; }
-    const e0=els[ib[k]], z0=zb[k]; let sx=0,sy=0,sz=0,cnt=0, edge=1;
-    for(let dy=-rad;dy<=rad;dy++){ const yy=y+dy; if(yy<0||yy>=H) continue; for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx; if(xx<0||xx>=W) continue; const k2=yy*W+xx; if(ib[k2]<0) continue;
-      if(Math.abs(zb[k2]-z0)<2.2){ sx+=nb[k2*3]; sy+=nb[k2*3+1]; sz+=nb[k2*3+2]; cnt++; } } }
-    let n=[nb[k*3],nb[k*3+1],nb[k*3+2]];
-    if(cnt>0){ const sn=b3n([sx,sy,sz]); const dif=Math.hypot(sn[0]-n[0],sn[1]-n[1],sn[2]-n[2]); edge=1-Math.min(.45,dif*.5); n=b3n([sn[0]*.8+n[0]*.2,sn[1]*.8+n[1]*.2,sn[2]*.8+n[2]*.2]); }
-    for(const k2 of [x<W-1?k+1:-1,y<H-1?k+W:-1,x>0?k-1:-1,y>0?k-W:-1]){ if(k2<0) continue; if(ib[k2]<0){ edge=Math.min(edge,.3); continue; }
-      const s2=els[ib[k2]]; if(e0.sid!==s2.sid && e0.sid>0 && s2.sid>0 && Math.abs(zb[k2]-z0)<7) edge=Math.min(edge,.78); }
-    const df=Math.max(0,n[0]*L[0]+n[1]*L[1]+n[2]*L[2]), sp=Math.pow(Math.max(0,n[0]*HV[0]+n[1]*HV[1]+n[2]*HV[2]),22)*(e0.hot?.1:.16);
-    const sh=(.34+.76*df)*edge, rim=Math.pow(1-Math.max(0,n[2]),2)*.15, col=e0.col;
-    px[j]=Math.min(255,col[0]*(sh-rim)+255*sp); px[j+1]=Math.min(255,col[1]*(sh-rim)+255*sp); px[j+2]=Math.min(255,col[2]*(sh-rim)+255*sp); px[j+3]=255; }
+  // végső mélység + ambient occlusion + fények
+  const Zf=new Float32Array(N); for(let k=0;k<N;k++) Zf[k]= M[k]<-1e8? -1e9 : M[k]+kk*Math.log(Sm[k]);
+  const img=ctx.createImageData(W,H), px=img.data, L=b4n(B4L), F=b4n(B4F), HV=b4n([L[0],L[1],L[2]+1]);
+  const ao=[], R1=Math.max(1.5,1.6*sc), R2=Math.max(2.5,3.6*sc);
+  for(let i=0;i<8;i++){ const a=i*Math.PI/4+.3; ao.push([Math.round(Math.cos(a)*R1),Math.round(Math.sin(a)*R1),1.6],[Math.round(Math.cos(a+.4)*R2),Math.round(Math.sin(a+.4)*R2),3.6]); }
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const k=y*W+x, j=k*4; if(M[k]<-1e8){ px[j+3]=0; continue; }
+    const z=Zf[k]; let occ=0, edge=0;
+    for(const [dx,dy,rr] of ao){ const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=W||yy>=H) continue; const z2=Zf[yy*W+xx]; if(z2<-1e8) continue; const dz=z2-z; if(dz>.3&&dz<7) occ+=Math.min(1,(dz-.3)/rr); }
+    for(const k2 of [x<W-1?k+1:-1,y<H-1?k+W:-1,x>0?k-1:-1,y>0?k-W:-1]){ if(k2<0||M[k2]<-1e8) edge=1; else if(Math.abs(Zf[k2]-z)>5) edge=Math.max(edge,.6); }
+    const s=Sm[k], nl=1/(Math.hypot(NX[k],NY[k],NZ[k])||1), nx=NX[k]*nl, ny=NY[k]*nl, nz=NZ[k]*nl;
+    const AO=1-Math.min(.55,occ/16*1.6);
+    const df=Math.max(0,nx*L[0]+ny*L[1]+nz*L[2]), fl=Math.max(0,nx*F[0]+ny*F[1]+nz*F[2]), sp=Math.pow(Math.max(0,nx*HV[0]+ny*HV[1]+nz*HV[2]),18)*.1;
+    const top=Math.max(0,-ny)*.08, sh=(.38+.62*df+.16*fl+top)*AO*(1-edge*.4);
+    px[j]=Math.min(255,CR[k]/s*sh+255*sp*AO); px[j+1]=Math.min(255,CG[k]/s*sh+255*sp*AO); px[j+2]=Math.min(255,CB[k]/s*sh+255*sp*AO); px[j+3]=255; }
   ctx.putImageData(img,0,0);
 }
 
 const B3OK=(()=>{ try{ return !!document.createElement('canvas').getContext('2d'); }catch(e){ return false; } })();
-function b3Proj(J,fig){ if(fig.fv) return J; const o={...J}; for(const k in J){ if(k==='_c') continue; const sd=k.endsWith('N')?1:k.endsWith('F')?-1:0; const z=/^(sh|el|wr|ha)/.test(k)?13*sd:/^(hip|kn|an|to)/.test(k)?8*sd:0; o[k]=[J[k][0]+B3K*z,J[k][1]]; } return o; }
+function figTotal(fig){ const P=fig._p,n=P.length; if(n<2) return 1; let t=0; for(let i=0;i<n-1;i++) t+=(fig.f[i+1].d??900)+(fig.f[i+1].h??600); if(fig.loop!=='cyc') for(let i=n-1;i>0;i--) t+=(fig.f[i].d??900)+(fig.f[0].h??500); return t; }
+const FIG3Q=30, fig3Cache=new WeakMap();   // részletes nézet: 30 képkocka/ciklus, egyszer kiszámolva, utána csak visszajátszás
 
 function figHTML(id,big,det){
   const fig=figFrames(id); if(!fig) return '';
@@ -2680,16 +2686,19 @@ function figTick(now){
   for(const el of els){ if(!el.getClientRects().length) continue; const fig=figFrames(el.dataset.fig); if(!fig) continue; const g=el.querySelector('.fg');
     const ms= red? (fig.f.slice(0,-1).reduce((a,f,i)=>a+(fig.f[i+1].d??900)+(fig.f[i+1].h??600),0)-50) : now-figT0;
     g.innerHTML=figSVG(figFK(fig,figAt(fig,ms)),fig,el.dataset.det==='1'&&fig.ana? figFK(fig,figAt(fig,ms+90)):null); }
-  if(e3.length&&(now-fig3T>=33||red)){ fig3T=now;
+  if(e3.length&&(now-fig3T>=30||red)){ fig3T=now; let budget=2;
     for(const el of e3){ if(!el.getClientRects().length) continue; const fig=figFrames(el.dataset.fig); if(!fig) continue; const det=el.dataset.det==='1', cv=el.querySelector('canvas');
-      const tw=Math.max(48,Math.min(Math.round(el.clientWidth*Math.min(window.devicePixelRatio||1,2)),det?330:150));
-      if(!det&&cv.width===tw&&cv.dataset.done) continue;           // kis ábra: csak egyszer rajzoljuk (spórol az akkuval)
-      if(cv.width!==tw){ cv.width=cv.height=tw; }
-      const ms= red? (fig.f.slice(0,-1).reduce((a,f,i)=>a+(fig.f[i+1].d??900)+(fig.f[i+1].h??600),0)-50) : det? now-figT0 : 99999;
-      const J=figFK(fig,figAt(fig,ms));
-      b3Draw(cv.getContext('2d'),tw,tw,figBox(fig),J,fig); cv.dataset.done='1';
-      el.querySelector('.fg').innerHTML=figSVG(J,fig,null);
-      if(det){ const J1=figFK(fig,figAt(fig,ms+90)); el.querySelector('.fo').innerHTML=aArrows(b3Proj(J,fig),b3Proj(J1,fig),fig); } } }
+      const tw=Math.max(48,Math.min(Math.round(el.clientWidth*Math.min(window.devicePixelRatio||1,2)),det?440:150)), ctx=cv.getContext('2d'), box=figBox(fig);
+      if(!det){ if(cv.width===tw&&cv.dataset.done) continue; if(budget--<=0) continue; cv.width=cv.height=tw;
+        const J=figFK(fig,figAt(fig,99999)); b4Draw(ctx,tw,tw,box,J,fig); cv.dataset.done='1'; el.querySelector('.fg').innerHTML=figSVG(J,fig,null); continue; }
+      let C=fig3Cache.get(el); if(!C||C.w!==tw){ C={w:tw,f:[]}; fig3Cache.set(el,C); cv.width=cv.height=tw; }
+      const tot=figTotal(fig), ph=red? (fig.f.slice(0,-1).reduce((a,f,i)=>a+(fig.f[i+1].d??900)+(fig.f[i+1].h??600),0)-50)/tot : ((now-figT0)%tot)/tot;
+      let q=Math.round(ph*FIG3Q)%FIG3Q;
+      if(!C.f[q]){ if(budget-->0){ const J=figFK(fig,figAt(fig,q/FIG3Q*tot)); b4Draw(ctx,tw,tw,box,J,fig); C.f[q]=ctx.getImageData(0,0,tw,tw); }
+        else { let d=1; while(d<FIG3Q&&!C.f[(q-d+FIG3Q)%FIG3Q]) d++; if(d<FIG3Q) q=(q-d+FIG3Q)%FIG3Q; else continue; } }
+      if(C.q===q) continue; C.q=q; ctx.putImageData(C.f[q],0,0);
+      const ms=q/FIG3Q*tot, J=figFK(fig,figAt(fig,ms)), J1=figFK(fig,figAt(fig,ms+90));
+      el.querySelector('.fg').innerHTML=figSVG(J,fig,null); el.querySelector('.fo').innerHTML=aArrows(b4Proj(J,fig),b4Proj(J1,fig),fig); } }
   figRAF= red? null : requestAnimationFrame(figTick);
 }
 function figStart(){ if(!figRAF) figRAF=requestAnimationFrame(figTick); }
