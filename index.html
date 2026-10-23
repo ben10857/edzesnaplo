@@ -256,7 +256,7 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--day);flex:none}
 .fig .bdo{fill:var(--muted);stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round}
 .fig .bdf{fill:var(--surface2);stroke:none}
 .fig .far .bdf{fill:var(--line)}
-.fig .mus{stroke:none}.fig .mus.m{fill:var(--hl);opacity:.9}.fig .mus.s{fill:var(--hl);opacity:.38}
+.fig .mus{stroke:none}.fig .mus.b{fill:var(--muted);opacity:.16;stroke:var(--muted);stroke-width:.5;stroke-opacity:.5}.fig .mus.m{fill:var(--hl);opacity:.9}.fig .mus.s{fill:var(--hl);opacity:.38}
 .fig .arc{fill:none;stroke:var(--blue);stroke-width:2.2;stroke-linecap:round}.fig .arh{fill:var(--blue)}
 .fig .arch{fill:none;stroke:var(--bg);stroke-width:5;stroke-linecap:round}.fig .arhh{fill:var(--bg);stroke:var(--bg);stroke-width:2.4;stroke-linejoin:round}
 .gmus{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
@@ -2452,9 +2452,9 @@ function aShape(pt,nm,pr,t0,t1,bell,n){
   const e=Math.max(.001,(t1-t0)*.08);
   return aSmooth([...F,cap(t1,t1-e*Math.sign(t1-t0||1),(r1[0]+r1[1])/2*c1),...B.reverse(),cap(t0,t0+e*Math.sign(t1-t0||1),(r0[0]+r0[1])/2*c0)]);
 }
-const A_PROF={thigh:[[0,8.2,9.2],[.3,7.9,6.9],[.7,6,5.6],[1,4.5,4.5]],shin:[[0,4.5,4.6],[.28,4.3,5.6],[.65,3.4,4.2],[1,2.8,2.8]],foot:[[0,3,3.4],[.5,2.4,2.2],[1,1.5,1.3]],
-  ua:[[0,4.9,4.7],[.35,4.8,4.6],[.75,3.9,3.9],[1,3.3,3.3]],fa:[[0,3.4,3.4],[.3,3.8,3.8],[1,2.3,2.3]],hand:[[0,2.4,2.2],[1,1.6,1.5]],neck:[[0,3.4,4],[1,3.2,3.2]],
-  torso:[[0,7.4,9.2],[.2,7,7.2],[.55,9.8,8],[.85,7.4,7],[1,4.4,4.8]]};
+const A_PROF={thigh:[[0,10,11.4],[.3,9.6,8.6],[.7,7.4,7],[1,5.2,5.4]],shin:[[0,5.2,5.6],[.28,5.2,7.2],[.65,4,5.2],[1,3.2,3.2]],foot:[[0,3.4,3.8],[.5,2.6,2.4],[1,1.6,1.4]],
+  ua:[[0,6.2,5.8],[.35,6,5.6],[.75,4.6,4.6],[1,3.8,3.8]],fa:[[0,4,4],[.3,4.5,4.5],[1,2.6,2.6]],hand:[[0,2.8,2.6],[1,1.8,1.7]],neck:[[0,3.8,4.6],[1,3.5,3.5]],
+  torso:[[0,8.6,10.6],[.2,8.2,8.4],[.55,11.6,9.2],[.85,8.6,8],[1,4.8,5.2]]};
 function aLimb(a,b,pr,t0,t1,bell){ const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1, q=[dy/l,-dx/l];
   return aShape(t=>[a[0]+dx*t,a[1]+dy*t],()=>q,pr,t0,t1,bell,6); }
 function aTorso(J){
@@ -2463,22 +2463,31 @@ function aTorso(J){
   const nm=t=>{ const tx=2*(1-t)*(C[0]-P[0])+2*t*(N[0]-C[0]), ty=2*(1-t)*(C[1]-P[1])+2*t*(N[1]-C[1]), l=Math.hypot(tx,ty)||1; return [-ty/l,tx/l]; };
   return {pt,nm};
 }
+// Izom = a végtag/törzs ELŐ- vagy HÁTOLDALÁN fekvő sáv, a valódi sugár arányában; a testkontúrra vágva (clipPath),
+// így mindig pontosan a testen belül marad, bármilyen testtartásnál.
+function aMs(pt,nm,pr,t0,t1,side,w,pw){
+  const n=8,O=[],I=[];
+  for(let i=0;i<=n;i++){ const u=i/n,t=t0+(t1-t0)*u,p=pt(t),q=nm(t),r=aRad(pr,t),rr=side>0?r[0]:r[1],bell=Math.pow(Math.sin(Math.PI*u),pw||.7),k=side>0?1:-1;
+    O.push([p[0]+q[0]*k*rr*1.6,p[1]+q[1]*k*rr*1.6]); I.push([p[0]+q[0]*k*rr*(1-w*bell),p[1]+q[1]*k*rr*(1-w*bell)]); }
+  return aSmooth([...O,...I.reverse()]);
+}
+const aSeg=(a,b)=>{ const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,q=[dy/l,-dx/l]; return {pt:t=>[a[0]+dx*t,a[1]+dy*t],nm:()=>q}; };
 function aMuscle(m,J,T){ // → SVG path az izomhoz (közeli oldal)
-  const sub=(pr,side,k)=>pr.map(r=>side>0?[r[0],r[1]*k,-r[1]*.18]:[r[0],-r[2]*.18,r[2]*k]);
+  const th=aSeg(J.hipN,J.knN),sh=aSeg(J.knN,J.anN),ua=aSeg(J.shN,J.elN),fa=aSeg(J.elN,J.wrN),M=aMs;
   switch(m){
-    case 'abs': return aShape(T.pt,T.nm,sub(A_PROF.torso,1,.92),.1,.55,1);
-    case 'chest': return aShape(T.pt,T.nm,sub(A_PROF.torso,1,.92),.5,.84,1);
-    case 'lats': return aShape(T.pt,T.nm,sub(A_PROF.torso,-1,.92),.3,.72,1);
-    case 'traps': return aShape(T.pt,T.nm,sub(A_PROF.torso,-1,.92),.66,1,1);
-    case 'low': return aShape(T.pt,T.nm,sub(A_PROF.torso,-1,.92),.02,.36,1);
-    case 'glutes': return aShape(T.pt,T.nm,[[0,0,10.8],[.2,0,8.4]],-.04,.24,1);
-    case 'delts': return aLimb(J.shN,J.elN,[[0,5.4,5.2],[.5,4.8,4.7]],0,.55,1);
-    case 'biceps': return aLimb(J.shN,J.elN,sub(A_PROF.ua,1,.9),.15,.88,1);
-    case 'triceps': return aLimb(J.shN,J.elN,sub(A_PROF.ua,-1,.9),.12,.88,1);
-    case 'forearms': return aLimb(J.elN,J.wrN,[[0,3.1,3.1],[.3,3.5,3.5],[1,2]],.05,.92,1);
-    case 'quads': return aLimb(J.hipN,J.knN,sub(A_PROF.thigh,1,.9),.08,.94,1);
-    case 'hams': return aLimb(J.hipN,J.knN,sub(A_PROF.thigh,-1,.9),.08,.94,1);
-    case 'calves': return aLimb(J.knN,J.anN,sub(A_PROF.shin,-1,.9),.04,.7,1);
+    case 'abs': return M(T.pt,T.nm,A_PROF.torso,.06,.54,1,.9);
+    case 'chest': return M(T.pt,T.nm,A_PROF.torso,.5,.88,1,.95)+M(ua.pt,ua.nm,A_PROF.ua,0,.3,1,.5);
+    case 'lats': return M(T.pt,T.nm,A_PROF.torso,.28,.74,-1,.85);
+    case 'traps': return M(T.pt,T.nm,A_PROF.torso,.64,1.02,-1,.95,.5);
+    case 'low': return M(T.pt,T.nm,A_PROF.torso,0,.38,-1,.85);
+    case 'glutes': return M(T.pt,T.nm,A_PROF.torso,-.1,.2,-1,.97,.55)+M(th.pt,th.nm,A_PROF.thigh,-.05,.3,-1,.9,.55);
+    case 'delts': return M(ua.pt,ua.nm,A_PROF.ua,-.08,.46,1,1,.5)+M(ua.pt,ua.nm,A_PROF.ua,-.08,.46,-1,1,.5);
+    case 'biceps': return M(ua.pt,ua.nm,A_PROF.ua,.14,.9,1,.85);
+    case 'triceps': return M(ua.pt,ua.nm,A_PROF.ua,.1,.9,-1,.9);
+    case 'forearms': return M(fa.pt,fa.nm,A_PROF.fa,.04,.94,1,.8)+M(fa.pt,fa.nm,A_PROF.fa,.04,.94,-1,.8);
+    case 'quads': return M(th.pt,th.nm,A_PROF.thigh,.05,.95,1,.95);
+    case 'hams': return M(th.pt,th.nm,A_PROF.thigh,.05,.95,-1,.95);
+    case 'calves': return M(sh.pt,sh.nm,A_PROF.shin,.04,.66,-1,.97);
   }
   return '';
 }
@@ -2516,13 +2525,17 @@ function anaSVG(J,fig,J1){
   const nose=`M${aF(ng[0]-ux*2.2)} ${aF(ng[1]-uy*2.2)}L${aF(ng[0]+q[0]*2.4+ux*.4)} ${aF(ng[1]+q[1]*2.4+uy*.4)}L${aF(ng[0]+ux*2.2)} ${aF(ng[1]+uy*2.2)}Z`;
   const circ=`M${aF(hx-8)} ${aF(hy)}a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z`;
   const m=fig.mus||{main:[],sec:[]};
+  const cid='mc'+(aCid++);
+  const clip=`<clipPath id="${cid}">${[neck,N.leg,N.arm,aShape(T.pt,T.nm,A_PROF.torso,0,1,0,9)].flat().map(d=>`<path d="${d}"/>`).join('')}</clipPath>`;
   const mus=(list,cls)=>list.map(k=>`<path class="mus ${cls}" d="${aMuscle(k,J,T)}"/>`).join('');
+  const base=J1?ALLMUS.filter(k=>!m.main.includes(k)&&!m.sec.includes(k)).map(k=>`<path class="mus b" d="${aMuscle(k,J,T)}"/>`).join(''):'';
   return `<g class="far">${bd(F.arm)}${bd(F.leg)}</g>`
     +bd(aShape(T.pt,T.nm,A_PROF.torso,0,1,0,9))+bd(neck)+bd(circ,nose)
     +bd(N.leg)+bd(N.arm)
-    +mus(m.sec,'s')+mus(m.main,'m')
+    +`<defs>${clip}</defs><g clip-path="url(#${cid})">${base}${mus(m.sec,'s')}${mus(m.main,'m')}</g>`
     +(J1?aArrows(J,J1,fig):'');
 }
+let aCid=0; const ALLMUS=['abs','chest','lats','traps','low','glutes','delts','biceps','triceps','forearms','quads','hams','calves'];
 
 function figHTML(id,big,det){
   const fig=figFrames(id); if(!fig) return '';
