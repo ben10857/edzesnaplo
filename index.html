@@ -2686,6 +2686,7 @@ const b3cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0
 const mMul=(A,B)=>{ const C=new Array(9); for(let i=0;i<3;i++) for(let j=0;j<3;j++) C[i*3+j]=A[i*3]*B[j]+A[i*3+1]*B[3+j]+A[i*3+2]*B[6+j]; return C; };
 const mV=(A,v)=>[A[0]*v[0]+A[1]*v[1]+A[2]*v[2],A[3]*v[0]+A[4]*v[1]+A[5]*v[2],A[6]*v[0]+A[7]*v[1]+A[8]*v[2]];
 const MI=[1,0,0,0,1,0,0,0,1];
+const mRot=(a,t)=>{ const c=Math.cos(t), s=Math.sin(t), C=1-c, [x,y,z]=a; return [c+x*x*C, x*y*C-z*s, x*z*C+y*s,  y*x*C+z*s, c+y*y*C, y*z*C-x*s,  z*x*C-y*s, z*y*C+x*s, c+z*z*C]; };
 function mAlign(a,b){ // legrövidebb forgatás a→b (egységvektorok)
   const c=[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]], d=a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   if(d<-.9999){ const ax=vn(Math.abs(a[0])<.9?[0,-a[2],a[1]]:[-a[1],a[0],0]); const [x,y,z]=ax; return [2*x*x-1,2*x*y,2*x*z,2*x*y,2*y*y-1,2*y*z,2*x*z,2*y*z,2*z*z-1]; }
@@ -2706,7 +2707,11 @@ function b5Pose(J,fig){ // → csontonként globális forgatás (R), nyújtás a
   const nh=d3(J.neck,J.head); for(const n of ['neck01','neck02','neck03','head']) tgt[n]=nh;
   const FL=FIG_L;
   for(const [s,k,o] of [[near,'N',-1],[far,'F',1]]){
-    const th=d3(J['hip'+k],J['kn'+k],FL.TH,o), sh=d3(J['kn'+k],J['an'+k],FL.SH,o), ua=d3(J['sh'+k],J['el'+k],FL.UA,o), fa=d3(J['el'+k],J['wr'+k],FL.FA,o), hd=d3(J['wr'+k],J['ha'+k]);
+    const th=d3(J['hip'+k],J['kn'+k],FL.TH,o), sh=d3(J['kn'+k],J['an'+k],FL.SH,o); let ua=d3(J['sh'+k],J['el'+k],FL.UA,o), fa=d3(J['el'+k],J['wr'+k],FL.FA,o); const hd=d3(J['wr'+k],J['ha'+k]);
+    if(fig.fly&&!fv){ // tárogatás: a kar vízszintes ívben mozog oldalról előre (a 2D oldalnézet csak vetület)
+      const fl=(A,Bq,extra)=>{ const dx=J[Bq+k][0]-J[A+k][0], dy=J[Bq+k][1]-J[A+k][1], a=Math.atan2(dx,dy)*180/Math.PI, sF=Math.max(0,Math.min(1,(a+90)/180)), v=-Math.cos(a*Math.PI/180)*.85, h=Math.sqrt(Math.max(0,1-v*v)), ph=(-12+sF*100+(extra||0))*Math.PI/180;
+        return vn([o*h*Math.cos(ph),v,h*Math.sin(ph)]); };
+      ua=fl('sh','el'); fa=fl('el','wr',18); }
     let ft=d3(J['an'+k],J['to'+k]); if(fv) ft=vn([0,-.25,1]);
     let hd2=hd; if(J['wr'+k][1]>-9) hd2=vn(fv?[0,-.15,1]:[0,-.15,1]);   // tenyér a talajon: előre néz, laposan
     tgt['upperleg01'+s]=th; tgt['upperleg02'+s]=th; tgt['lowerleg01'+s]=sh; tgt['lowerleg02'+s]=sh; tgt['foot'+s]=ft;
@@ -2716,7 +2721,11 @@ function b5Pose(J,fig){ // → csontonként globális forgatás (R), nyújtás a
     const wD=[s3[0]+ua[0]*FL.UA+fa[0]*FL.FA,s3[1]+ua[1]*FL.UA+fa[1]*FL.FA,s3[2]+ua[2]*FL.UA+fa[2]*FL.FA], aD=[h3[0]+th[0]*FL.TH+sh[0]*FL.SH,h3[1]+th[1]*FL.TH+sh[1]*FL.SH,h3[2]+th[2]*FL.TH+sh[2]*FL.SH];
     tgt.ik=tgt.ik||{}; const straight=Math.hypot(J['wr'+k][0]-J['sh'+k][0],J['wr'+k][1]-J['sh'+k][1])>(FL.UA+FL.FA)*.95;
     const pl=(A,M,Bq,bk)=>{ const a=to3(J[A+k]),m3=to3(J[M+k]),b=to3(J[Bq+k]),d=v3(a,b),dl=Math.hypot(...d)||1,u=[d[0]/dl,d[1]/dl,d[2]/dl],w=v3(a,m3),t=w[0]*u[0]+w[1]*u[1]+w[2]*u[2],pp=[w[0]-u[0]*t,w[1]-u[1]*t,w[2]-u[2]*t]; return Math.hypot(...pp)>2.5?vn(pp):bk; };
-    tgt.ik['upperarm01'+s]={t:w3,dep:wD,pole:pl('sh','el','wr','back'),b2:'lowerarm01'+s,end:'wrist'+s,up:'upperarm02'+s,lo:'lowerarm02'+s,shrug:7,straight};
+    // kéztartás: fogás (rúd, fogantyú, súlyzó, kábel), lapos tenyér (talaj, pad), egyébként laza
+    const PR=fig.props||[], gripT=['hbar','handle','db','cable','bar','plate'], onBox=PR.some(q=>q.t==='boxUnder'&&q.j==='ha'+k);
+    tgt.hand=tgt.hand||{}; tgt.hand[s]= onBox||J['wr'+k][1]>-9 ? 'flat' : PR.some(q=>gripT.includes(q.t)&&(!q.j||q.t==='plate'||q.j.slice(-1)===k||q.t==='hbar')&&!(q.t==='db'&&(fig.props||[]).some(o2=>o2.t==='boxUnder'&&o2.j==='ha'+k))) ? 'grip' : 'relax';
+    if(onBox) hd2=vn(fv?[0,-.15,1]:[0,-.15,1]);
+    if(!(fig.fly&&!fv)) tgt.ik['upperarm01'+s]={flare:fv?0:(fig.flare||0),out:[o,0,0],t:w3,dep:wD,pole:pl('sh','el','wr','back'),b2:'lowerarm01'+s,end:'wrist'+s,up:'upperarm02'+s,lo:'lowerarm02'+s,shrug:7,straight};
     tgt.ik['upperleg01'+s]={t:a3,dep:aD,pole:pl('hip','kn','an','front'),b2:'lowerleg01'+s,end:'foot'+s,up:'upperleg02'+s,lo:'lowerleg02'+s,shrug:0}; }
   const nb=B.bones.length, R=new Array(nb), H=new Array(nb), K=new Array(nb);
   const REF=fv?[0,0,1]:[1,0,0];
@@ -2743,10 +2752,16 @@ function b5Pose(J,fig){ // → csontonként globális forgatás (R), nyújtás a
       let D=v3(S0,T3), d=Math.hypot(...D);
       if(ik.shrug&&(d>L1+L2-.05||ik.straight)){ const mv=Math.max(-10,Math.min(ik.shrug,d-(L1+L2)+.05)), u=vn(D); H[i]=[S0[0]+u[0]*mv,S0[1]+u[1]*mv,S0[2]+u[2]*mv]; D=v3(H[i],T3); d=Math.hypot(...D); }
       const u=vn(D), dd=Math.max(Math.abs(L1-L2)+.01,Math.min(L1+L2-.01,d)), x=(L1*L1-L2*L2+dd*dd)/(2*dd), hh=Math.sqrt(Math.max(0,L1*L1-x*x));
-      let pv=ik.pole; if(typeof pv==='string'){ const fr=mV(R[0],[0,0,1]); pv=pv==='front'?fr:[-fr[0],-fr[1],-fr[2]]; } let pd=pv[0]*u[0]+pv[1]*u[1]+pv[2]*u[2]; pv=[pv[0]-u[0]*pd,pv[1]-u[1]*pd,pv[2]-u[2]*pd]; if(Math.hypot(...pv)<1e-3) pv=fv?[0,0,1]:[0,0,1]; pv=vn(pv);
+      let pv=ik.pole; if(typeof pv==='string'){ const fr=mV(R[0],[0,0,1]); pv=pv==='front'?fr:[-fr[0],-fr[1],-fr[2]]; } if(ik.flare) pv=vn([pv[0]+ik.out[0]*ik.flare,pv[1],pv[2]]); let pd=pv[0]*u[0]+pv[1]*u[1]+pv[2]*u[2]; pv=[pv[0]-u[0]*pd,pv[1]-u[1]*pd,pv[2]-u[2]*pd]; if(Math.hypot(...pv)<1e-3) pv=fv?[0,0,1]:[0,0,1]; pv=vn(pv);
       const Sx=H[i], E=[Sx[0]+u[0]*x+pv[0]*hh,Sx[1]+u[1]*x+pv[1]*hh,Sx[2]+u[2]*x+pv[2]*hh], W2=[Sx[0]+u[0]*dd,Sx[1]+u[1]*dd,Sx[2]+u[2]*dd];
       const g1=vn(v3(Sx,E)), g2=vn(v3(E,W2)); tgt[b.n]=g1; tgt[ik.up]=g1; tgt[ik.b2]=g2; tgt[ik.lo]=g2; }
-    const g=tgt[b.n]; if(!g){ R[i]=Rp; continue; }
+    const g=tgt[b.n];
+    if(!g){ const fm=/^finger(\d)-(\d)(\.[LR])$/.exec(b.n);
+      if(fm&&tgt.hand){ const md=tgt.hand[fm[3]]||'relax', seg=+fm[2]-1, th=fm[1]==='1';
+        const ang=(md==='grip'?(th?[15,30,30]:[70,95,65]):md==='flat'?[0,0,0]:(th?[5,10,10]:[16,22,14]))[seg]*Math.PI/180;
+        if(ang){ const wi=B.bi['wrist'+fm[3]], m1=B.bones[B.bi['metacarpal1'+fm[3]]], m4=B.bones[B.bi['metacarpal4'+fm[3]]], ax=vn(mV(R[wi],v3(m1.t,m4.t)));
+          R[i]=mMul(mRot(ax,(fm[3]==='.L'?-1:1)*ang),Rp); continue; } }
+      R[i]=Rp; continue; }
     R[i]=fAl(rest(b),g); }
   return {R,H,K}; }
 const B5L=vn([.35,.6,.72]), B5F=vn([-.6,.15,.5]);
@@ -3312,6 +3327,8 @@ const GUIDE_MATCH=[
  [/pike|hspu/i,'pike_pushup'],[/pseudo planche|fekvőtámasz/i,'pushup'],[/planche/i,'planche_lean'],[/kézenáll/i,'handstand_wall'],[/l-ül/i,'lsit'],
 ];
 function guideKey(e){ const nm=(e&&e.name)||''; if(!nm||/bemelegítés/i.test(nm)) return null; for(const [re,k] of GUIDE_MATCH) if(re.test(nm)) return k; return null; }
+for(const k of ['pec_deck','reverse_pec','cable_fly_low']) if(GUIDES[k]) GUIDES[k].fig.fly=1;
+for(const k of ['chest_press','incline_machine','incline_db','bench_bb','pushup','knee_pushup','db_shoulder_press','shoulder_press_m','pike_pushup','pulldown','pullup','neg_pullup','pullup_assist','planche_lean']) if(GUIDES[k]) GUIDES[k].fig.flare=.9;
 for(const k in GUIDES){ FIGS['g_'+k]=GUIDES[k].fig; GUIDES[k].fig.ana=true; GUIDES[k].fig.mus=musOf(k)||{main:[],sec:[]}; }
 function figPropExt(pr,J){
   const P=J.pelvis, N=J.neck, vx=N[0]-P[0], vy=N[1]-P[1], ln=Math.hypot(vx,vy)||1, bx=vy/ln, by=-vx/ln; // bx,by: a hát felé mutató merőleges
