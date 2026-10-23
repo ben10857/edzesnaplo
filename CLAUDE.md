@@ -22,6 +22,7 @@ Telefonos, offline is működő PWA; GitHub Pages teszi ki (`main` ág), a telef
 
 ## Fájlok
 - `index.html` – az egész app (HTML + CSS + JS). `sw.js` – offline + frissítés-jelzés (etag). `manifest.webmanifest`, `icon-*.png`. Minden útvonal relatív.
+- `3d/` – opcionális 3D-nézet: `viewer.js` (saját, függőség nélküli Canvas-nézegető) + `<kulcs>.json` gyakorlatonként (~1 KB: pózok, izomcsoportok). Új 3D-s gyakorlat: JSON a `3d/`-be (a 2D `GUIDES` ábra pózaiból generálható a `figFK`-val), a kulcsa a `G3D`-be (index.html), `G3D_V` növelése. A service worker (`sync3d`) csak a kiválasztott program gyakorlatainak fájljait tölti le és tartja meg; hiány esetén a 2D ábra marad.
 - `docs/projekt.md` – részletes háttér (felépítés, program-JSON formátum, ismert korlátok). `docs/programok.md` – generált programok. Csak akkor olvasd, ha kell.
 
 ## Kódtérkép – `index.html` (sorszámok kb., a függvénynevekre keress)

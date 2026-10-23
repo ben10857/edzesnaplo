@@ -1040,7 +1040,7 @@ function render(){
              : ui.tab==='elozmeny' ? viewHistory()
              : ui.tab==='haladas' ? viewProgress() : (ui.edit? viewEditor() : ui.ai? viewAI() : viewInfo());
   if(ui.tab==='haladas'||ui.tab==='mob') wireChart();
-  renderTimer(); tick(); renderBackupState(); figStart();
+  renderTimer(); tick(); renderBackupState(); figStart(); setTimeout(prefetch3d,800);
 }
 function viewMissing(){
   return `<div class="card empty" style="margin-top:14px"><b>A folyamatban lévő edzés programja nem található</b>Lehet, hogy még töltődik, vagy közben törölted a programot.<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-act="discard-yes">Edzés elvetése</button></div></div>`;
@@ -2818,6 +2818,7 @@ function guideTips(e,orig){
   const alt= e.alt&&e.alt!=='—'? `<p class="muted small" style="margin:6px 0 0">${e.cali?'Progresszió / könnyítés':'Alternatíva'}: ${esc(e.alt)}</p>`:'';
   return `<details class="more" data-od="tp${e.id}" ${open?'open':''} style="flex-basis:100%"><summary>Hogyan csináld? · ábra${e.alt&&e.alt!=='—'?(e.cali?' · progresszió':' · alternatíva'):''}</summary>
     <div class="gwrap"><div class="gfig" data-k="${k}">${open?figHTML('g_'+k):''}</div>
+    ${G3D[k]?`<button class="btn sm" type="button" data-g3d="${k}" style="margin:0 0 8px">🧊 3D nézet (forgatható)</button><div class="g3dbox" hidden></div>`:''}
     <ol class="gsteps">${G.s.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>
     ${G.mu?`<p class="small" style="margin:6px 0 0"><b>Dolgozó izmok:</b> ${esc(G.mu)}</p>`:''}
     ${G.m?`<p class="small" style="margin:6px 0 0"><b>Gyakori hiba:</b> ${esc(G.m)}</p>`:''}
@@ -2828,6 +2829,39 @@ function guideThumb(e){
   const k=guideKey(e); if(!k) return '';
   return `<button class="gthumb" data-act="gopen" data-ex="${esc(e.id)}" aria-label="Végrehajtás és ábra">${figHTML('g_'+k)}</button>`;
 }
+
+/* ---------- 3D nézet (opcionális, gyakorlatonként külön kis fájl; csak a kiválasztott program gyakorlataié töltődik le) ---------- */
+const G3D={plank:1}, G3D_V='1';   // új 3D-s gyakorlat: fájl a 3d/ mappába + ide a kulcsa; a G3D_V növelése új letöltést kényszerít
+const f3d=k=>'./3d/'+k+'.json?v='+G3D_V, V3D='./3d/viewer.js?v='+G3D_V;
+let p3dSig='';
+function prefetch3d(){
+  try{
+    const c=navigator.serviceWorker&&navigator.serviceWorker.controller; if(!c) return;
+    const keys=new Set(); const progs=new Set([curKey()]); const a=S.settings.activeId&&S.sessions[S.settings.activeId]; if(a) progs.add(a.program);
+    for(const pk of progs){ const p=PROGRAMS[pk]; if(!p) continue; for(const d in p.ex) for(const e of p.ex[d]){ const k=guideKey(e); if(k&&G3D[k]) keys.add(k); } }
+    const files=keys.size? [V3D,...[...keys].map(f3d)] : [];
+    const sig=files.join('|'); if(sig===p3dSig) return; p3dSig=sig;
+    c.postMessage({type:'cache3d',files});
+  }catch(e){}
+}
+const isDark=()=>{ try{ const m=getComputedStyle(document.body).backgroundColor.match(/\d+/g); return m&&(+m[0]+ +m[1]+ +m[2])/3<110; }catch(e){ return false; } };
+async function open3d(btn){
+  const box=btn.nextElementSibling; if(!box) return;
+  if(box._g3d){ box._g3d.destroy(); box._g3d=null; box.innerHTML=''; box.hidden=true; btn.textContent='🧊 3D nézet (forgatható)'; return; }
+  const k=btn.dataset.g3d; box.hidden=false; box.innerHTML='<p class="small muted" style="margin:0">Betöltés…</p>';
+  try{
+    const [mod,data]=await Promise.all([import(V3D), fetch(f3d(k)).then(r=>{ if(!r.ok) throw new Error('404'); return r.json(); })]);
+    box.innerHTML=`<div class="g3dc" style="height:260px;border:1px solid var(--line);border-radius:12px;background:var(--bg)"></div>
+      <div class="row g3dm" style="gap:6px;margin:8px 0 0;flex-wrap:wrap">${(data.muscles||[]).flatMap(m=>m.parts.map(pt=>`<span class="tag" style="display:inline-flex;gap:5px;align-items:center"><i style="width:10px;height:10px;border-radius:50%;background:${m.role==='main'?mod.MAIN:mod.SUPPORT};display:inline-block"></i>${esc((mod.PARTS[pt]||{}).hu||pt)}${m.role==='main'?' (fő)':''}</span>`)).join('')}</div>
+      <div class="row" style="gap:6px;margin:8px 0 0;flex-wrap:wrap"><button class="btn sm" type="button" data-g3dv="side">Oldalról</button><button class="btn sm" type="button" data-g3dv="front">Elölről</button><button class="btn sm" type="button" data-g3dv="top">Felülről</button><button class="btn sm" type="button" data-g3dv="spin">Forgás</button></div>
+      <p class="small muted" style="margin:6px 0 0">Húzd oldalra az ujjadat a forgatáshoz. Narancs = fő izom, sárga = segítő izom.</p>`;
+    box._g3d=mod.mount(box.querySelector('.g3dc'),data,{dark:isDark()}); btn.textContent='🧊 3D nézet elrejtése';
+  }catch(e){ box.innerHTML='<p class="small" style="margin:0">A 3D nézet még nincs letöltve ezen a telefonon. Nyisd meg egyszer internetkapcsolattal (a program mentése után magától letöltődik).</p>'; }
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-g3d]'); if(b){ open3d(b); return; }
+  const v=ev.target.closest('[data-g3dv]'); if(v){ const box=v.closest('.g3dbox'); const g=box&&box._g3d; if(!g) return; if(v.dataset.g3dv==='spin') g.spin(true); else g.setView(v.dataset.g3dv); }
+});
 
 if(FIGS.scappull) FIGS.scappull.noFloor=1;
 document.addEventListener('toggle',ev=>{ const d=ev.target; if(d&&d.open&&d.querySelector){ const g=d.querySelector('.gfig'); if(g&&!g.firstElementChild&&g.dataset.k){ g.innerHTML=figHTML('g_'+g.dataset.k); figStart(); } } },true);
