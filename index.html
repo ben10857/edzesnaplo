@@ -260,8 +260,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--day);flex:none}
 .fig .arc{fill:none;stroke:var(--blue);stroke-width:2.2;stroke-linecap:round}.fig .arh{fill:var(--blue)}
 .fig .arch{fill:none;stroke:var(--bg);stroke-width:5;stroke-linecap:round}.fig .arhh{fill:var(--bg);stroke:var(--bg);stroke-width:2.4;stroke-linejoin:round}
 .gmus{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
-.gmus span{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
-.gmus span.m{background:var(--hl);border-color:var(--hl);color:#fff;font-weight:600}
+.gmus span{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid #f7b040;background:#f7b04033;color:var(--fg)}
+.gmus span.m{background:#e43e1e;border-color:#e43e1e;color:#fff;font-weight:600}
 .gwrap{margin-top:8px}
 .gfig{width:100%;max-width:300px;aspect-ratio:1/1;margin:0 auto 8px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:6px}
 .gfig svg{width:100%;height:100%;display:block}
@@ -2396,7 +2396,7 @@ function figSVG(J,fig,J1){
     else if(pr.t==='stick'){ const a=J.pelvis,b=J.neck; const ex=[b[0]+(b[0]-a[0])*.35,b[1]+(b[1]-a[1])*.35], ux=(b[1]-a[1]), uy=-(b[0]-a[0]), l=Math.hypot(ux,uy)||1, o=-5; props+=`<path class="band" d="M${(a[0]+ux/l*o-(b[0]-a[0])*.1).toFixed(1)} ${(a[1]+uy/l*o-(b[1]-a[1])*.1).toFixed(1)}L${(ex[0]+ux/l*o).toFixed(1)} ${(ex[1]+uy/l*o).toFixed(1)}"/>`; }
     else if(typeof figPropExt==='function'){ if(!(fig.ana&&pr.t==='mark')) props+=figPropExt(pr,J); }
   }
-  if(fig.ana) return B3OK?props:props+anaSVG(J,fig,J1);
+  if(fig.ana) return B3OK?(BODY?'':props):props+anaSVG(J,fig,J1);
   return `${props}<g class="far">${limb('F','lb')}${leg('F','lb')}</g>`
     +`<path class="lb" d="${trunk}"/><path class="lb" d="${segD('neck','head')}"/>${leg('N','lb')}<circle class="hd" cx="${J.head[0].toFixed(1)}" cy="${J.head[1].toFixed(1)}" r="${FIG_L.HR}"/>${limb('N','lb')}`
     +H('trunk',trunk)+H('a1n',segD('shN','elN'))+H('a2n',segD('elN','wrN'))+H('a1f',segD('shF','elF'))+H('a2f',segD('elF','wrF'))
@@ -2675,14 +2675,14 @@ function bodyLoad(){ if(BODYP) return BODYP;
     const bones=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,o,jl))); o+=jl;
     const Q=new Int16Array(buf.slice(o,o+n*6)); o+=n*6;
     const BI=new Uint8Array(buf,o,n*4); o+=n*4; const BW=new Uint8Array(buf,o,n*4); o+=n*4;
-    const LAB=new Uint8Array(buf,o,n); o+=n; const LW=new Uint8Array(buf,o,n); o+=n; o+=(4-o%4)%4;
+    const LAB=new Uint8Array(buf,o,n); o+=n; const LW=new Uint8Array(buf,o,n); o+=n; const CAV=h[0]===0x42443032?new Uint8Array(buf,o,n):new Uint8Array(n); if(h[0]===0x42443032) o+=n; o+=(4-o%4)%4;
     const T=new Uint16Array(buf.slice(o,o+m*6));
     const P=new Float32Array(n*3); for(let i=0;i<n*3;i++) P[i]=Q[i]/100;
     const bi={}; bones.forEach((b,i)=>bi[b.n]=i);
-    BODY={n,m,bones,bi,P,BI,BW,LAB,LW,T}; try{ figStart(); }catch(e){} return BODY; }).catch(()=>{ BODYP=null; return null; });
+    BODY={n,m,bones,bi,P,BI,BW,LAB,LW,CAV,T}; try{ figStart(); }catch(e){} return BODY; }).catch(()=>{ BODYP=null; return null; });
   return BODYP; }
 // kis vektor-/forgatás-segédek (forgatás: 3×3 mátrix sor-folytonosan)
-const v3=(a,b)=>[b[0]-a[0],b[1]-a[1],b[2]-a[2]], vn=v=>{ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; };
+const b3cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]], v3=(a,b)=>[b[0]-a[0],b[1]-a[1],b[2]-a[2]], vn=v=>{ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; };
 const mMul=(A,B)=>{ const C=new Array(9); for(let i=0;i<3;i++) for(let j=0;j<3;j++) C[i*3+j]=A[i*3]*B[j]+A[i*3+1]*B[3+j]+A[i*3+2]*B[6+j]; return C; };
 const mV=(A,v)=>[A[0]*v[0]+A[1]*v[1]+A[2]*v[2],A[3]*v[0]+A[4]*v[1]+A[5]*v[2],A[6]*v[0]+A[7]*v[1]+A[8]*v[2]];
 const MI=[1,0,0,0,1,0,0,0,1];
@@ -2719,11 +2719,20 @@ function b5Pose(J,fig){ // → csontonként globális forgatás (R), nyújtás a
     tgt.ik['upperarm01'+s]={t:w3,dep:wD,pole:pl('sh','el','wr','back'),b2:'lowerarm01'+s,end:'wrist'+s,up:'upperarm02'+s,lo:'lowerarm02'+s,shrug:7,straight};
     tgt.ik['upperleg01'+s]={t:a3,dep:aD,pole:pl('hip','kn','an','front'),b2:'lowerleg01'+s,end:'foot'+s,up:'upperleg02'+s,lo:'lowerleg02'+s,shrug:0}; }
   const nb=B.bones.length, R=new Array(nb), H=new Array(nb), K=new Array(nb);
-  const rest=b=>{ if(/^wrist/.test(b.n)){ const m=B.bones[B.bi['metacarpal2'+b.n.slice(-2)]]; if(m) return vn(v3(b.h,m.t)); } return vn(v3(b.h,b.t)); }, restTor=vn(v3(B.bones[B.bi.spine05].h,B.bones[B.bi.neck01].h)), down=[0,-1,0];
+  const REF=fv?[0,0,1]:[1,0,0];
+  const fAl=(a0,a1)=>{ // keret-illesztés: a csont tengelye a célirányba, a csavarodás a test oldal-/előre-irányához rögzítve
+    const pr=(a)=>{ let r=REF, d=r[0]*a[0]+r[1]*a[1]+r[2]*a[2]; if(Math.abs(d)>.92){ r=[0,1,0]; d=a[1]; } const e2=vn([r[0]-a[0]*d,r[1]-a[1]*d,r[2]-a[2]*d]); return [a,e2,b3cross(a,e2)]; };
+    const E=pr(a0), F=pr(a1), M=[0,0,0,0,0,0,0,0,0];
+    for(let k=0;k<3;k++) for(let i=0;i<3;i++) for(let j=0;j<3;j++) M[i*3+j]+=F[k][i]*E[k][j];
+    return M; };
+  const rest=b=>{ const sd=b.n.slice(-2);
+    if(/^wrist/.test(b.n)){ const m=B.bones[B.bi['metacarpal2'+sd]]; if(m) return vn(v3(b.h,m.t)); }
+    if(/^foot/.test(b.n)){ const m=B.bones[B.bi['toe3-1'+sd]]; if(m) return vn(v3(b.h,m.h)); }
+    return vn(v3(b.h,b.t)); }, restTor=vn(v3(B.bones[B.bi.spine05].h,B.bones[B.bi.neck01].h)), down=[0,-1,0];
   if(!B.kk){ B.kk={}; const len=(a,b)=>Math.hypot(...v3(B.bones[B.bi[a]].h,B.bones[B.bi[b]].h));
     B.kk.UA=Math.min(1.1,FL.UA/len('upperarm01.L','lowerarm01.L')); B.kk.FA=Math.min(1.06,FL.FA/len('lowerarm01.L','wrist.L')); B.kk.TH=FL.TH/len('upperleg01.L','lowerleg01.L'); B.kk.SH=FL.SH/len('lowerleg01.L','foot.L'); }
   for(let i=0;i<nb;i++){ const b=B.bones[i], base=b.n.replace(/\.[LR]$/,''); K[i]=B5K[base]?B.kk[B5K[base]]:1;
-    if(b.p<0){ R[i]=mAlign(restTor,tor); const hl=B.bones[B.bi['upperleg01.L']].h, hr=B.bones[B.bi['upperleg01.R']].h, off=mV(R[i],[(hl[0]+hr[0])/2-b.h[0],(hl[1]+hr[1])/2-b.h[1],(hl[2]+hr[2])/2-b.h[2]]), pj=to3(J.pelvis); H[i]=[pj[0]-off[0],pj[1]-off[1],pj[2]-off[2]]; continue; }
+    if(b.p<0){ R[i]=fAl(restTor,tor); const hl=B.bones[B.bi['upperleg01.L']].h, hr=B.bones[B.bi['upperleg01.R']].h, off=mV(R[i],[(hl[0]+hr[0])/2-b.h[0],(hl[1]+hr[1])/2-b.h[1],(hl[2]+hr[2])/2-b.h[2]]), pj=to3(J.pelvis); H[i]=[pj[0]-off[0],pj[1]-off[1],pj[2]-off[2]]; continue; }
     const Rp=R[b.p], hp=H[b.p], pb=B.bones[b.p], kp=K[b.p], ra=rest(pb), off=v3(pb.h,b.h), al=off[0]*ra[0]+off[1]*ra[1]+off[2]*ra[2];
     const so=[off[0]+(kp-1)*al*ra[0],off[1]+(kp-1)*al*ra[1],off[2]+(kp-1)*al*ra[2]], d=mV(Rp,so); H[i]=[hp[0]+d[0],hp[1]+d[1],hp[2]+d[2]];
     const ik=tgt.ik&&tgt.ik[b.n];
@@ -2738,12 +2747,10 @@ function b5Pose(J,fig){ // → csontonként globális forgatás (R), nyújtás a
       const Sx=H[i], E=[Sx[0]+u[0]*x+pv[0]*hh,Sx[1]+u[1]*x+pv[1]*hh,Sx[2]+u[2]*x+pv[2]*hh], W2=[Sx[0]+u[0]*dd,Sx[1]+u[1]*dd,Sx[2]+u[2]*dd];
       const g1=vn(v3(Sx,E)), g2=vn(v3(E,W2)); tgt[b.n]=g1; tgt[ik.up]=g1; tgt[ik.b2]=g2; tgt[ik.lo]=g2; }
     const g=tgt[b.n]; if(!g){ R[i]=Rp; continue; }
-    const cur=vn(mV(Rp,rest(b)));
-    if(/^upperarm01/.test(b.n)){ R[i]=mMul(mAlign(down,g),mMul(mAlign(cur,down),Rp)); continue; }
-    R[i]=mMul(mAlign(cur,g),Rp); }
+    R[i]=fAl(rest(b),g); }
   return {R,H,K}; }
 const B5L=vn([.35,.6,.72]), B5F=vn([-.6,.15,.5]);
-const B5COL={0:[208,212,218],m:[240,112,40],s:[236,170,126],cloth:[70,78,92]};
+const B5COL={0:[214,218,224],m:[228,62,30],s:[247,176,64],cloth:[64,72,86]};
 function b5Draw(ctx,W,H,box,J,fig){
   const B=BODY; if(!B) return false;
   const {R,H:HB,K:KB}=b5Pose(J,fig), cam=b5Cam(fig), sc=W/box[2], n=B.n, P=B.P;
@@ -2771,11 +2778,12 @@ function b5Draw(ctx,W,H,box,J,fig){
     const df=Math.max(0,nx*Lw[0]+ny*Lw[1]+nz*Lw[2]), fl=Math.max(0,nx*Fw[0]+ny*Fw[1]+nz*Fw[2]);
     const hx=Lw[0]-f[0],hy=Lw[1]-f[1],hz=Lw[2]-f[2], hl=1/(Math.hypot(hx,hy,hz)||1), sp=Math.pow(Math.max(0,(nx*hx+ny*hy+nz*hz)*hl),28)*.18;
     const rim=Math.pow(1-Math.max(0,vd),3)*.1, sh=.36+.6*df+.2*fl+rim;
-    const LB=B.LAB[i], lb=LABN[LB&31]||'', lw=B.LW[i]/255;
+    const LB=B.LAB[i], lb=LABN[LB&31]||'', lw=Math.min(1,B.LW[i]/255*1.35);
     let c=(LB&32)?B5COL.cloth:B5COL[0];
     if(mm.main.includes(lb)) c=[c[0]+(B5COL.m[0]-c[0])*lw,c[1]+(B5COL.m[1]-c[1])*lw,c[2]+(B5COL.m[2]-c[2])*lw];
     else if(mm.sec.includes(lb)) c=[c[0]+(B5COL.s[0]-c[0])*lw,c[1]+(B5COL.s[1]-c[1])*lw,c[2]+(B5COL.s[2]-c[2])*lw];
-    CR[i]=c[0]*sh+255*sp; CG[i]=c[1]*sh+255*sp; CB[i]=c[2]*sh+255*sp; }
+    const cv=1-B.CAV[i]/255*.38, sh2=sh*cv, sp2=sp*cv;
+    CR[i]=c[0]*sh2+255*sp2; CG[i]=c[1]*sh2+255*sp2; CB[i]=c[2]*sh2+255*sp2; }
   // raszterizálás (z-puffer, Gouraud)
   const NP=W*H, ZB=new Float32Array(NP).fill(-1e9), img=ctx.createImageData(W,H), px=img.data, CR2=new Float32Array(NP), CG2=new Float32Array(NP), CB2=new Float32Array(NP);
   for(let t=0;t<m;t++){ const a=T[t*3],b=T[t*3+1],c=T[t*3+2];
@@ -2787,6 +2795,18 @@ function b5Draw(ctx,W,H,box,J,fig){
       const w0=((bx-qx)*(cy-py)-(by-py)*(cx-qx))*ia, w1=((cx-qx)*(ay-py)-(cy-py)*(ax-qx))*ia, w2=1-w0-w1;
       if(w0<0||w1<0||w2<0) continue; const z=w0*SZ[a]+w1*SZ[b]+w2*SZ[c], k=y*W+x; if(z<=ZB[k]) continue; ZB[k]=z;
       CR2[k]=w0*CR[a]+w1*CR[b]+w2*CR[c]; CG2[k]=w0*CG[a]+w1*CG[b]+w2*CG[c]; CB2[k]=w0*CB[a]+w1*CB[b]+w2*CB[c]; } } }
+  // gépek / eszközök 3D-ben, ugyanabba a mélységpufferbe
+  const pj=q=>[((q[0]*r[0]+q[1]*r[1]+q[2]*r[2])-box[0])*sc,(-q[1]-box[1])*sc,-(q[0]*f[0]+q[1]*f[1]+q[2]*f[2])];
+  for(const [A,Bv,C,col,gl] of b5Props(J,fig,HB,R)){
+    const a=pj(A),b=pj(Bv),c=pj(C); let area=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]); if(Math.abs(area)<1e-6) continue;
+    let nx=(Bv[1]-A[1])*(C[2]-A[2])-(Bv[2]-A[2])*(C[1]-A[1]), ny=(Bv[2]-A[2])*(C[0]-A[0])-(Bv[0]-A[0])*(C[2]-A[2]), nz=(Bv[0]-A[0])*(C[1]-A[1])-(Bv[1]-A[1])*(C[0]-A[0]); const nl=1/(Math.hypot(nx,ny,nz)||1); nx*=nl; ny*=nl; nz*=nl;
+    if(-(nx*f[0]+ny*f[1]+nz*f[2])<0){ nx=-nx; ny=-ny; nz=-nz; }
+    const df=Math.max(0,nx*Lw[0]+ny*Lw[1]+nz*Lw[2]), fl=Math.max(0,nx*Fw[0]+ny*Fw[1]+nz*Fw[2]), hx=Lw[0]-f[0],hy=Lw[1]-f[1],hz=Lw[2]-f[2], hl=1/(Math.hypot(hx,hy,hz)||1), sp=Math.pow(Math.max(0,(nx*hx+ny*hy+nz*hz)*hl),gl?40:16)*(gl?.7:.12);
+    const sh=.34+.62*df+.18*fl, cr=col[0]*sh+255*sp, cg=col[1]*sh+255*sp, cb=col[2]*sh+255*sp, ia=1/area;
+    const x0=Math.max(0,Math.floor(Math.min(a[0],b[0],c[0]))), x1=Math.min(W-1,Math.ceil(Math.max(a[0],b[0],c[0]))), y0=Math.max(0,Math.floor(Math.min(a[1],b[1],c[1]))), y1=Math.min(H-1,Math.ceil(Math.max(a[1],b[1],c[1])));
+    for(let y=y0;y<=y1;y++){ const py=y+.5; for(let x=x0;x<=x1;x++){ const qx=x+.5;
+      const w0=((b[0]-qx)*(c[1]-py)-(b[1]-py)*(c[0]-qx))*ia, w1=((c[0]-qx)*(a[1]-py)-(c[1]-py)*(a[0]-qx))*ia, w2=1-w0-w1;
+      if(w0<0||w1<0||w2<0) continue; const z=w0*a[2]+w1*b[2]+w2*c[2], k=y*W+x; if(z<=ZB[k]) continue; ZB[k]=z; CR2[k]=cr; CG2[k]=cg; CB2[k]=cb; } } }
   // képtér-AO + körvonal
   const ao=[], R1=Math.max(1.5,1.4*sc), R2=Math.max(2.5,3.4*sc);
   for(let i=0;i<8;i++){ const q=i*Math.PI/4+.3; ao.push([Math.round(Math.cos(q)*R1),Math.round(Math.sin(q)*R1),1.4],[Math.round(Math.cos(q+.4)*R2),Math.round(Math.sin(q+.4)*R2),3.2]); }
@@ -2797,6 +2817,68 @@ function b5Draw(ctx,W,H,box,J,fig){
     const s=(1-Math.min(.5,occ/16*1.5))*(1-edge*.4);
     px[j]=Math.min(255,CR2[k]*s); px[j+1]=Math.min(255,CG2[k]*s); px[j+2]=Math.min(255,CB2[k]*s); px[j+3]=255; }
   ctx.putImageData(img,0,0); return true;
+}
+// ---- gépek/eszközök 3D-s primitívekből (doboz, henger) a 2D-s leírásból (fig.props) ----
+const B5M={steel:[92,99,110],dark:[52,56,64],pad:[38,42,50],chrome:[150,156,166],plate:[44,47,54],foam:[34,36,42],wall:[226,229,233],band:[214,72,60]};
+function b5Props(J,fig,H,R){
+  const out=[], B=BODY, fv=!!fig.fv, X2=fv?[1,0,0]:[0,0,1], Y2=[0,-1,0], DP=fv?[0,0,1]:[1,0,0], near=fv?'.L':'.R', far=fv?'.R':'.L';
+  const p3=(x,y,d)=>[X2[0]*x+DP[0]*(d||0), -y, X2[2]*x+DP[2]*(d||0)];
+  const add=(v,a,k)=>[v[0]+a[0]*k,v[1]+a[1]*k,v[2]+a[2]*k];
+  const quad=(a,b,c,d,col,gl)=>{ out.push([a,b,c,col,gl],[a,c,d,col,gl]); };
+  const boxA=(c,u,v,w,hu,hv,hw,col,gl)=>{ const P=(i,j,k)=>add(add(add(c,u,i*hu),v,j*hv),w,k*hw);
+    quad(P(-1,-1,1),P(1,-1,1),P(1,1,1),P(-1,1,1),col,gl); quad(P(-1,-1,-1),P(1,-1,-1),P(1,1,-1),P(-1,1,-1),col,gl);
+    quad(P(-1,-1,-1),P(1,-1,-1),P(1,-1,1),P(-1,-1,1),col,gl); quad(P(-1,1,-1),P(1,1,-1),P(1,1,1),P(-1,1,1),col,gl);
+    quad(P(-1,-1,-1),P(-1,1,-1),P(-1,1,1),P(-1,-1,1),col,gl); quad(P(1,-1,-1),P(1,1,-1),P(1,1,1),P(1,-1,1),col,gl); };
+  const box2=(x0,y0,x1,y1,hd,col,dc)=>boxA(p3((x0+x1)/2,(y0+y1)/2,dc||0),X2,Y2,DP,Math.abs(x1-x0)/2,Math.abs(y1-y0)/2,hd,col);
+  const seg2=(a,b,th,hd,col,off)=>{ const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1, nx=-dy/l, ny=dx/l, o=off||0, c=[(a[0]+b[0])/2+nx*o,(a[1]+b[1])/2+ny*o];
+    const u=vn([X2[0]*dx/l,-dy/l,X2[2]*dx/l]), v=vn([X2[0]*nx,-ny,X2[2]*nx]); boxA(p3(c[0],c[1]),u,v,DP,l/2,th,hd,col); };
+  const cyl=(a,b,rad,col,gl,nseg)=>{ const ax=vn(v3(a,b)); let t=Math.abs(ax[1])<.9?[0,1,0]:[1,0,0]; const e1=vn(b3cross(ax,t)), e2=b3cross(ax,e1), N=nseg||12, ring=(c)=>{ const r=[]; for(let i=0;i<N;i++){ const q=i/N*2*Math.PI; r.push(add(add(c,e1,Math.cos(q)*rad),e2,Math.sin(q)*rad)); } return r; };
+    const A=ring(a), Bq=ring(b); for(let i=0;i<N;i++){ const j=(i+1)%N; quad(A[i],A[j],Bq[j],Bq[i],col,gl); out.push([a,A[j],A[i],col,gl],[b,Bq[i],Bq[j],col,gl]); } };
+  // a test pontjai 3D-ben (a pózolt csontvázból)
+  const bone=n=>H[B.bi[n]];
+  const hand=s=>{ const w=bone('wrist'+s), m=B.bones[B.bi['metacarpal2'+s]], wb=B.bones[B.bi['wrist'+s]], d=mV(R[B.bi['wrist'+s]],v3(wb.h,m.t)); return add(w,d,.75); };
+  const J3=nm=>{ nm=nm||'haN'; if(typeof nm!=='string') return p3(nm[0],nm[1]); const s=nm.endsWith('F')?far:near, b=nm.replace(/[NF]$/,'');
+    if(b==='ha') return hand(s); if(b==='wr') return bone('wrist'+s); if(b==='el') return bone('lowerarm01'+s); if(b==='sh') return bone('upperarm01'+s);
+    if(b==='kn') return bone('lowerleg01'+s); if(b==='an') return bone('foot'+s); if(b==='hip') return bone('upperleg01'+s);
+    if(b==='to'){ const fo=bone('foot'+s), fb=B.bones[B.bi['foot'+s]], tb=B.bones[B.bi['toe3-1'+s]]; return add(fo,mV(R[B.bi['foot'+s]],v3(fb.h,tb.h)),1.35); }
+    return J[nm]?p3(J[nm][0],J[nm][1]):[0,0,0]; };
+  const lat=v=>v[0]*DP[0]+v[2]*DP[2];                 // a képsíkból kifelé eső koordináta
+  const P=J.pelvis, N=J.neck, vx=N[0]-P[0], vy=N[1]-P[1], ln=Math.hypot(vx,vy)||1, bx=vy/ln, by=-vx/ln;
+  const HW=fv?11:16;                                   // ülések, padok fél-szélessége a képsíkra merőlegesen
+  for(const pr of fig.props||[]){
+    switch(pr.t){
+      case 'seat': box2(P[0]-17,P[1]+4,P[0]+14,P[1]+10,HW,B5M.pad); cyl(p3(P[0]-2,P[1]+10),p3(P[0]-2,-1),2,B5M.steel); box2(P[0]-16,-2,P[0]+12,0,12,B5M.dark); break;
+      case 'back': { const L=pr.len||1.08, o=fv?0:11.5, a=[P[0]+bx*o-vx*.04,P[1]+by*o-vy*.04], b=[P[0]+bx*o+vx*L,P[1]+by*o+vy*L]; seg2(a,b,2.6,HW-1,B5M.pad);
+        const m=[(a[0]+b[0])/2+bx*3,(a[1]+b[1])/2+by*3]; if(m[1]<-6) cyl(p3(m[0],m[1]),p3(m[0]+bx*4,-1),1.8,B5M.steel); break; }
+      case 'stack': { const x=pr.x||0, h=pr.h||118, d=fv?-18:0; cyl(p3(x+1,0,d),p3(x+1,-h,d),1.2,B5M.chrome,1); cyl(p3(x+15,0,d),p3(x+15,-h,d),1.2,B5M.chrome,1);
+        for(let i=0;i<7;i++) box2(x+2.5,-4.6*i-4.4,x+13.5,-4.6*i-.6,7,B5M.plate,d); box2(x-1,-h-2,x+17,-h+2,8,B5M.steel,d); box2(x-2,-1.5,x+18,0,10,B5M.dark,d);
+        cyl(p3(x+8,-h+7,d-2.5),p3(x+8,-h+7,d+2.5),4,B5M.dark); break; }
+      case 'cable': { const a=J3(pr.a||'haN'), e=p3(pr.x,pr.y,fv?0:0); cyl(a,e,.55,[40,42,48]); cyl(add(e,DP,-2),add(e,DP,2),3.4,B5M.steel); break; }
+      case 'handle': for(const s of ['N','F']){ const a=J3('ha'+s); cyl(add(a,[0,1,0],5.5),add(a,[0,1,0],-5.5),1.3,B5M.dark); } break;
+      case 'hbar': { const a=J3(pr.j||'wrN'), b=J3((pr.j||'wrN').replace(/N$/,'F')), w=(pr.w||34)/2;
+        if(fv){ const c=pr.j? J[pr.j]:J.wrN; cyl(p3(c[0]-w,c[1],lat(a)),p3(c[0]+w,c[1],lat(a)),1.25,B5M.chrome,1); }
+        else { const c=[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2], hl=Math.max(Math.abs(a[0]-b[0])/2+9,w); cyl([c[0]-hl,c[1],c[2]],[c[0]+hl,c[1],c[2]],1.6,B5M.chrome,1); } break; }
+      case 'db': for(const s of (pr.j?[pr.j.slice(-1)]:['N','F'].filter(q=>!(fig.props||[]).some(o=>o.t==='boxUnder'&&o.j==='ha'+q)))){ const a=J3('ha'+s), u=[1,0,0]; cyl(add(a,u,-4.6),add(a,u,4.6),1.15,B5M.chrome,1); cyl(add(a,u,-8.6),add(a,u,-4.6),3.7,B5M.plate,0,8); cyl(add(a,u,4.6),add(a,u,8.6),3.7,B5M.plate,0,8); } break;
+      case 'plate': { const pj2=pr.j||'haN', a=J3(pj2), c2=[J[pj2][0]+(pr.dx||0),J[pj2][1]+(pr.dy||0)];
+        if(fv){ const c=p3(c2[0],c2[1],lat(a)); cyl(add(c,DP,-1.6),add(c,DP,1.6),10,B5M.plate,0,16); }
+        else { const b=J3(pj2.replace(/N$/,'F')); for(const sg of [1,-1]){ const xl=sg*(Math.max(Math.abs(a[0]),Math.abs(b[0]))+10), c=p3(c2[0],c2[1],xl); cyl(add(c,DP,-1.8),add(c,DP,1.8),10,B5M.plate,0,16); } } break; }
+      case 'roller': { const c=pr.j?[J[pr.j][0]+(pr.dx||0),J[pr.j][1]+(pr.dy||0)]:[pr.x,pr.y], d=pr.j?lat(J3(pr.j)):0; cyl(p3(c[0],c[1],d-12),p3(c[0],c[1],d+12),pr.r||6,B5M.foam,0,14); break; }
+      case 'boxUnder': { const j=J[pr.j]; box2(j[0]-pr.w/2,j[1]+2,j[0]+pr.w/2,0,HW,B5M.pad); break; }
+      case 'box': box2(pr.x,pr.y,pr.x+pr.w,pr.y+pr.h,HW,B5M.pad); break;
+      case 'wall': box2(pr.x-1,-190,pr.x+1,0,40,B5M.wall); break;
+      case 'wallAt': { const x=J[pr.j][0]+(pr.dx||0); box2(x-1,-190,x+1,0,40,B5M.wall); break; }
+      case 'panel': box2(-34,-175,34,0,1.5,B5M.wall,-16); break;
+      case 'band': cyl(J3(pr.a),J3(pr.b),.9,B5M.band); break;
+      case 'bar': cyl(p3(-40,pr.y),p3(40,pr.y),1.4,B5M.chrome,1); break;
+      case 'plat': { const a=J[pr.a], b=J[pr.b], dx=b[0]-a[0], dy=b[1]-a[1], l=Math.hypot(dx,dy)||1, e=pr.ext||5; seg2([a[0]-dx/l*e,a[1]-dy/l*e],[b[0]+dx/l*e,b[1]+dy/l*e],1.6,HW,B5M.steel,2.5); break; }
+      case 'benchT': { const x0=Math.min(P[0],J.head[0])-4, x1=Math.max(P[0],J.head[0],J.knN?Math.min(J.knN[0],P[0]+10):P[0])+6, top=Math.max(P[1],N[1])+5;
+        box2(x0,top,x1,top+5,HW-2,B5M.pad); box2(x0+3,top+5,x1-3,top+7,HW-5,B5M.steel); for(const xx of [x0+6,x1-6]) box2(xx-1.5,top+7,xx+1.5,0,HW-4,B5M.steel); break; }
+      case 'chestpad': { const c=[P[0]-bx*14+vx*.62,P[1]-by*14+vy*.62]; seg2([c[0]-vx*.28,c[1]-vy*.28],[c[0]+vx*.28,c[1]+vy*.28],2.6,HW-2,B5M.pad); cyl(p3(c[0]-bx*3,c[1]-by*3),p3(c[0]+12,-1),1.8,B5M.steel); break; }
+      case 'armpad': { const s3=J.shN, e=J.elN, o=8; seg2([s3[0],s3[1]+o],[e[0],e[1]+o],2.4,HW-2,B5M.pad); cyl(p3((s3[0]+e[0])/2,(s3[1]+e[1])/2+o+2),p3((s3[0]+e[0])/2,-1),1.8,B5M.steel); break; }
+      case 'stick': { const a=J.pelvis,b=J.neck, ex=[b[0]+(b[0]-a[0])*.35,b[1]+(b[1]-a[1])*.35], o=-11; cyl(p3(a[0]-bx*o-(b[0]-a[0])*.1,a[1]-by*o-(b[1]-a[1])*.1),p3(ex[0]-bx*o,ex[1]-by*o),1,[150,110,70]); break; }
+    }
+  }
+  return out;
 }
 // fények: a kamerához képest rögzítve (mindig elölről-felülről világít)
 function b5LightW(c){ const u=[0,1,0], bk=[-c.f[0],-c.f[1],-c.f[2]]; return vn([c.r[0]*.45+u[0]*.6+bk[0]*.66, c.r[1]*.45+u[1]*.6+bk[1]*.66, c.r[2]*.45+u[2]*.6+bk[2]*.66]); }
@@ -3254,7 +3336,7 @@ function figPropExt(pr,J){
 function gMusEq(k){
   const m=musOf(k), eq=EQ[k];
   const chips=m? m.main.map(x=>`<span class="m">${MUSHU[x]}</span>`).join('')+m.sec.map(x=>`<span>${MUSHU[x]}</span>`).join('') : '';
-  return `${eq?`<p class="small" style="margin:0 0 6px"><b>Gép / eszköz:</b> ${esc(eq)}</p>`:''}${chips?`<div class="gmus" aria-label="Dolgozó izmok">${chips}</div><p class="small muted" style="margin:0 0 8px">Színes: fő izom, halvány: segítő izom. A kék nyilak az ízületek mozgásirányát mutatják.</p>`:''}`;
+  return `${eq?`<p class="small" style="margin:0 0 6px"><b>Gép / eszköz:</b> ${esc(eq)}</p>`:''}${chips?`<div class="gmus" aria-label="Dolgozó izmok">${chips}</div><p class="small muted" style="margin:0 0 8px">Piros: fő izom, sárga: segítő izom. A kék nyilak az ízületek mozgásirányát mutatják.</p>`:''}`;
 }
 function guideTips(e,orig){
   const k=guideKey(e); if(!k) return orig;
