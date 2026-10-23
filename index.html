@@ -713,6 +713,8 @@ for (const key in BUILTIN){ const P=BUILTIN[key];
 const COLS=['red','blue','yellow','green'];
 const COLNAME={red:'piros',blue:'kék',yellow:'sárga',green:'zöld'};
 const normRange=v=>{ const s=String(v??'').trim().replace(/\s+/g,'').replace(/-/g,'–'); return /^\d+(–\d+)?$/.test(s)?s:null; };
+const TIMED_RE=/plank|függeszked|tartás|hold|hollow|oldalsó támasz|alkartámasz|fal ?ülés/i;
+function exUnit(e){ return e&&e.unit==='sec'?'sec' : e&&e.unit==='reps'?'reps' : TIMED_RE.test((e&&e.name)||'')?'sec':'reps'; }
 function ssFlags(ex){ const f=[]; ex.forEach((e,i)=>{ f[i]=!!e.ssNext && i<ex.length-1 && !(i>0&&f[i-1]); }); return f; }
 function buildProgram(d){
   const per=Math.max(1,Math.min(7,parseInt(d.perWeek,10)||3));
@@ -731,13 +733,14 @@ function buildProgram(d){
       const r=parseInt(e.rest,10);
       return {id:e.id,lab,name:(e.name||'').trim()||'Gyakorlat',kieg:false,
         sets:Math.max(1,Math.min(10,parseInt(e.sets,10)||3)),reps:normRange(e.reps)||'8–12',rir:normRange(e.rir)||'1',
-        rest:f[i]?0:(isFinite(r)?Math.max(0,r):90),alt:(e.alt||'').trim()||'—',tip:(e.tip||'').trim(),ss:f[i]?ex[i+1].id:null};
+        rest:f[i]?0:(isFinite(r)?Math.max(0,r):90),alt:(e.alt||'').trim()||'—',tip:(e.tip||'').trim(),ss:f[i]?ex[i+1].id:null,
+        unit:exUnit(e),cali:!!e.bw};
     });
   });
   let c=0; P.weeks=keys.length? P.phases.map(()=>Array.from({length:per},()=>keys[(c++)%keys.length])) : [];
   return P;
 }
-const newEx=id=>({id,name:'',sets:3,reps:'8–12',rir:'1',rest:90,ssNext:false,alt:'',tip:''});
+const newEx=id=>({id,name:'',sets:3,reps:'8–12',rir:'1',rest:90,ssNext:false,alt:'',tip:'',unit:'reps',bw:false});
 function blankDraft(){ return {title:'',label:'',perWeek:3,pain:false,phases:['intro','normal','normal','peak','deload'],seq:2,
   days:[{key:'d1',name:'',sub:'',col:'blue',ex:[newEx('x2')]}]}; }
 function draftFrom(k){
@@ -891,7 +894,7 @@ function recommendBase(prog,e,phase,excludeId){
   if(!last) return {kind:'new', why:`Első alkalom: válassz olyan súlyt, amivel ${t.lo}–${t.hi} ismétlés megy úgy, hogy kb. ${t.rir} ismétlés maradjon tartalékban. Ebből számolom a következőt.`};
   return coreGym(prog,e,t,phase,last);
 }
-const altTxt=e=>String(e.alt||'').replace(/\.$/,'');
+const altTxt=e=>{ const a=String(e.alt||'').replace(/\.$/,''); return a&&a!=='—'? a : 'nehezebb változat (lassabb tempó, több ismétlés)'; };
 /* Izometria: +2–3 mp szettenként; L-ülésnél az össz-idő (60 mp) a mérce. */
 function recSec(e,t,phase,last){
   const {lo,hi,sets:n}=t;
@@ -1611,10 +1614,12 @@ function viewEditor(){
           <button class="iconb" data-act="ed-upex" ${a} aria-label="Feljebb" ${i===0?'disabled':''}>↑</button><button class="iconb" data-act="ed-downex" ${a} aria-label="Lejjebb" ${i===day.ex.length-1?'disabled':''}>↓</button><button class="iconb" data-act="ed-rmex" ${a} aria-label="Gyakorlat törlése">✕</button></div>
         <div class="grid4">
           <div class="field"><label for="es-${di}-${i}">Szett</label><input class="inp" id="es-${di}-${i}" data-ef="sets" ${a} inputmode="numeric" value="${esc(e.sets)}"></div>
-          <div class="field"><label for="er-${di}-${i}">Ismétlés</label><input class="inp" id="er-${di}-${i}" data-ef="reps" ${a} value="${esc(e.reps)}" placeholder="8–12"></div>
+          <div class="field"><label for="er-${di}-${i}">${exUnit(e)==='sec'?'Idő (mp)':'Ismétlés'}</label><input class="inp" id="er-${di}-${i}" data-ef="reps" ${a} value="${esc(e.reps)}" placeholder="${exUnit(e)==='sec'?'20–40':'8–12'}"></div>
           <div class="field"><label for="eq-${di}-${i}">RIR</label><input class="inp" id="eq-${di}-${i}" data-ef="rir" ${a} value="${esc(e.rir)}" placeholder="1–2"></div>
           <div class="field"><label for="et-${di}-${i}">Pihenő mp</label><input class="inp" id="et-${di}-${i}" data-ef="rest" ${a} inputmode="numeric" value="${f[i]?'':esc(e.rest)}" ${f[i]?'disabled placeholder="—"':''}></div>
         </div>
+        <label class="row small" style="gap:8px;flex-wrap:nowrap"><input type="checkbox" data-ef="bw" ${a} ${e.bw?'checked':''}> Testsúlyos gyakorlat (nincs súly mező, csak ismétlés)</label>
+        <label class="row small" style="gap:8px;flex-wrap:nowrap"><input type="checkbox" data-ef="unitSec" ${a} ${exUnit(e)==='sec'?'checked':''}> Időre megy (tartás, pl. plank): mp-et mérünk ismétlés helyett</label>
         ${i<day.ex.length-1&&!prev?`<label class="row small" style="gap:8px;flex-wrap:nowrap"><input type="checkbox" data-ef="ssNext" ${a} ${e.ssNext?'checked':''}> Szuperszett a következő gyakorlattal (közte nincs pihenő)</label>`:''}
         <details class="more"><summary>Végrehajtás · alternatíva</summary><div class="stack" style="gap:8px;margin-top:6px"><input class="inp" data-ef="alt" ${a} value="${esc(e.alt)}" placeholder="Alternatív gyakorlat (ha foglalt a gép)" aria-label="Alternatíva"><textarea data-ef="tip" ${a} placeholder="Végrehajtási tipp, beállítás, amire figyelni kell" aria-label="Végrehajtás">${esc(e.tip)}</textarea></div></details>
       </div>`; }).join('');
@@ -1779,15 +1784,16 @@ SZABÁLYOK
 - A blokk hetei ezekből a fázisokból álljanak: "intro" (bevezető, RIR +1), "normal" (terhelő), "peak" (csúcshét), "deload". Tipikusan 4–6 hét, deload a végén.
 
 KIMENET: csak egy JSON objektum, más szöveg nélkül, pontosan ebben a szerkezetben:
-{"title":"program neve","label":"rövid név, max 10 karakter","phases":["intro","normal","normal","peak","deload"],"notes":"2–4 mondat: miért így épül fel, mire figyeljen","days":[{"name":"nap neve","sub":"fő izomcsoportok röviden","col":"red|blue|yellow|green","ex":[{"name":"gyakorlat","sets":3,"reps":"8–12","rir":"1–2","rest":120,"ssNext":false,"alt":"alternatív gyakorlat","tip":"végrehajtás 1–2 mondatban"}]}]}
-A "ssNext": true azt jelenti, hogy a gyakorlat szuperszettben megy a következővel (csak párok).`;
+{"title":"program neve","label":"rövid név, max 10 karakter","phases":["intro","normal","normal","peak","deload"],"notes":"2–4 mondat: miért így épül fel, mire figyeljen","days":[{"name":"nap neve","sub":"fő izomcsoportok röviden","col":"red|blue|yellow|green","ex":[{"name":"gyakorlat","sets":3,"reps":"8–12","rir":"1–2","rest":120,"ssNext":false,"unit":"reps","bw":false,"alt":"alternatív gyakorlat","tip":"végrehajtás 1–2 mondatban"}]}]}
+A "unit" értéke "reps" (ismétlés) vagy "sec" (időre menő tartás, pl. plank: ilyenkor a "reps" másodperc-tartomány, pl. "20–40").
+A "bw": true jelöli a testsúlyos gyakorlatot (nincs súly, csak ismétlés vagy idő).\nA "ssNext": true azt jelenti, hogy a gyakorlat szuperszettben megy a következővel (csak párok).`;
 }
 function draftFromAI(r,f){
   if(!r||typeof r!=='object'||!Array.isArray(r.days)||!r.days.length) throw new Error('bad');
   let seq=0; const str=(v,n)=>String(v??'').trim().slice(0,n);
   const days=r.days.slice(0,7).map((d,i)=>({key:'d'+(++seq),name:str(d&&d.name,40)||((i+1)+'. nap'),sub:str(d&&d.sub,80),col:COLS.includes(d&&d.col)?d.col:COLS[i%4],
     ex:(Array.isArray(d&&d.ex)?d.ex:[]).slice(0,14).filter(e=>e&&str(e.name,80)).map(e=>({id:'x'+(++seq),name:str(e.name,80),sets:Math.max(1,Math.min(8,parseInt(e.sets,10)||3)),
-      reps:normRange(e.reps)||'8–12',rir:normRange(e.rir)||'1',rest:Math.max(0,Math.min(600,parseInt(e.rest,10)||90)),ssNext:!!e.ssNext,alt:str(e.alt,80),tip:str(e.tip,400)}))
+      reps:normRange(e.reps)||'8–12',rir:normRange(e.rir)||'1',rest:Math.max(0,Math.min(600,parseInt(e.rest,10)||90)),ssNext:!!e.ssNext,alt:str(e.alt,80),tip:str(e.tip,400),unit:e.unit==='sec'?'sec':'reps',bw:!!e.bw}))
   })).filter(d=>d.ex.length);
   if(!days.length) throw new Error('bad');
   const phases=(Array.isArray(r.phases)?r.phases:[]).filter(p=>PHASE[p]).slice(0,8);
@@ -2711,8 +2717,62 @@ const GUIDES={
  pull_through:{n:'Kábeles pull-through',fig:gf([fr(STAND,{t:105,hd:100,a1n:-15,a2n:-15,a1f:-15,a2f:-15,l1n:20,l2n:-8,l1f:20,l2f:-8},1000,300),fr(STAND,{a1n:-8,a2n:-8,a1f:-8,a2f:-8},1000,600)],{ax:'anN',props:[{t:'cable',x:-60,y:-8},{t:'handle'}],hl:['hip']}),
   s:['Csiga alul, kötél fogantyú; állj háttal a gépnek, a kötelet a lábaid között fogd, lépj előre, amíg feszül.','Térd enyhén hajlítva, hát egyenes; told hátra a csípőt, a kötél a lábak között hátrafelé megy.','Csípőből told előre magad egyenes állásig, fent szorítsd meg a farizmot.','Ne a karral húzd: a kar csak tartja a kötelet.'],
   m:'Guggolássá válik (túl sok térdhajlítás), vagy fent hátradőlés.'},
+ bw_squat:{n:'Testsúlyos guggolás',fig:gf([fr(STAND,{a1n:90,a2n:90,a1f:90,a2f:90},1000,300),fr(SQUAT,{t:150,hd:165,a1n:90,a2n:90,a1f:90,a2f:90},1400,700)],{ax:'anN',hl:['l1n','hip']}),
+  mu:'Comb (négyfejű), far, combhajlító; a has stabilizál.',
+  s:['Állj vállszélességű terpeszbe, lábfej enyhén kifelé néz (kb. 15–30°). Karokat nyújtsd előre a vállad magasságába, ez segít az egyensúlyban.','Szívj be, feszítsd meg a hasad, mintha egy ütésre számítanál. A mellkas fent marad, a tekintet előre néz.','Told hátra a csípődet (mintha egy képzeletbeli székre ülnél), és közben hajlítsd a térdedet. A térd a lábfej irányába megy, nem esik befelé.','Ereszkedj addig, amíg a combod kb. vízszintes, vagy amíg a hátad egyenes tud maradni. A sarkad végig a földön marad.','Told el a földet a talpaddal és állj fel, közben fújd ki a levegőt. Fent ne feszítsd túl a térdet, a csípőd kerüljön a váll alá.'],
+  m:'A sarok felemelkedik, a térd befelé dől, vagy a hát legömbölyödik. Ilyenkor ereszkedj kevésbé mélyre, és lassíts.'},
+ chair_squat:{n:'Felállás székről',fig:gf([fr(SEAT,{t:168,hd:176,a1n:60,a2n:90,a1f:60,a2f:90,l2n:5,l2f:5},1000,300),fr(STAND,{a1n:90,a2n:90,a1f:90,a2f:90},1100,600)],{ax:'anN',props:[{t:'box',x:-58,y:-38,w:30,h:38}],hl:['l1n','hip']}),
+  mu:'Comb, far.',
+  s:['Ülj a szék elé: a talpad vállszélességben a földön, a térded a bokád fölött.','Dőlj kicsit előre a csípődből, a karjaid mehetnek előre, a hát egyenes.','Told le a talpaddal a földet és állj fel egy mozdulattal, a kezedet ne használd.','Fent szorítsd meg a farizmot, majd lassan, 3 másodperc alatt ülj vissza (ne zuhanj a székre).'],
+  m:'A térd befelé dől, vagy a hátadat lendíted, hogy felállj. Ha nehéz, használj magasabb széket.'},
+ knee_pushup:{n:'Térdelő fekvőtámasz',fig:gf([fr(QUAD,{t:105,hd:100,a1n:0,a2n:0,a1f:0,a2f:0},900,300),fr(QUAD,{t:98,hd:94,a1n:-60,a2n:5,a1f:-60,a2f:5,l1n:-38,l2n:-90,l1f:-38,l2f:-90},1100,600)],{props:[{t:'mark',k:'chest'}],hl:['a1n','trunk']}),
+  mu:'Mell, tricepsz, első váll; a has stabilizál.',
+  s:['Térdelj le egy puha felületre, a kezeid vállszélességnél kicsit szélesebben, közvetlenül a vállad alatt.','A térdtől a fejig egyenes vonalat tarts: a has feszes, a csípő se lóg, se nem emelkedik fel.','Hajlítsd a könyöködet, kb. 45°-ban a testtől (nem oldalt, nem „csirkeszárnyként”), és engedd le a mellkasodat a földhöz 2 másodperc alatt.','Told vissza magad a kezeddel, amíg a karod majdnem kinyúlik. Lefelé szívj be, felfelé fújd ki.'],
+  m:'A csípő hátrafelé kitolódik vagy a derék belóg. Gondolj arra, hogy a törzsed egy merev deszka.'},
+ neg_pullup:{n:'Negatív húzódzkodás',fig:gf([fr(STAND,{a1n:25,a2n:172,a1f:25,a2f:172,l1n:15,l2n:-25,l1f:15,l2f:-25,fn:60,ff:60},900,300),fr(STAND,{a1n:178,a2n:178,a1f:178,a2f:178,l1n:15,l2n:-25,l1f:15,l2f:-25,fn:60,ff:60},3200,500)],{ay:['wrN',-230],ax:'wrN',noFloor:1,props:[{t:'hbar',w:40},{t:'mark',k:'back'}],hl:['a1n']}),
+  mu:'Hát (lats), bicepsz, alkar, fogóerő.',
+  s:['Állj egy székre vagy dobozra a húzódzkodó rúd alatt. Fogd meg a rudat vállszélességnél kicsit szélesebben, tenyér előre.','Lépj vagy ugorj fel úgy, hogy az álladat a rúd fölé tudd tartani. Innen indul a gyakorlat, ez a „felül” helyzet.','Tartsd meg ezt a helyzetet 1 másodpercig, majd engedd le magad nagyon lassan, kb. 4 másodperc alatt. Közben húzd a vállaidat lefelé, a könyököt a csípőd felé.','Alul már teljesen kinyújtott karokkal lógsz. Állj vissza a székre, pihenj egy kicsit, és kezdd elölről.'],
+  m:'Gyorsan leesel, vagy a vállad felhúzódik a füled felé. A lassú leengedés a lényeg, ettől lesz erősebb a hátad.'},
+ dead_hang:{n:'Függeszkedés a rúdon',fig:gf([fr(STAND,{a1n:178,a2n:178,a1f:178,a2f:178,l1n:8,l2n:-12,l1f:8,l2f:-12,fn:60,ff:60},900,300)],{ay:['wrN',-230],ax:'wrN',noFloor:1,props:[{t:'hbar',w:40}],hl:['a1n','a1f']}),
+  mu:'Alkar, fogóerő, váll; nyújtja a hátat és a mellkast.',
+  s:['Fogd meg a rudat vállszélességnél kicsit szélesebben, tenyér előre. Ha nem éred el, állj egy székre, és onnan lendülj fel.','Függj ki teljesen nyújtott karokkal, a lábad szabadon lóg, a hasad enyhén feszes.','Húzd kicsit lefelé a vállaidat (ne a füled felé), mintha „elkapnád” a rudat a lapockáddal. Ez a függés aktív helyzete.','Tartsd az előírt ideig, közben lélegezz egyenletesen. Ha a kezed fáradt, lépj vissza a székre, ne ugorj le.'],
+  m:'A vállad felhúzódik a füledhez, vagy lendülsz. Ha fáj a váll, rövidebb ideig tartsd, és szólj az edződnek.'},
+ scap_pull:{n:'Lapockahúzás a rúdon',fig:gf([fr(STAND,{a1n:178,a2n:178,a1f:178,a2f:178,l1n:8,l2n:-12,l1f:8,l2f:-12,fn:60,ff:60},900,300),fr(STAND,{a1n:152,a2n:170,a1f:152,a2f:170,l1n:8,l2n:-12,l1f:8,l2f:-12,fn:60,ff:60},900,600)],{ay:['wrN',-230],ax:'wrN',noFloor:1,props:[{t:'hbar',w:40},{t:'mark',k:'shoulder'}],hl:['trunk']}),
+  mu:'Alsó és középső trapéz, hát, lapocka körüli izmok.',
+  s:['Lógj a rúdon nyújtott karokkal, a váll a füled felé „elnyúlik” (alsó helyzet).','Úgy, hogy a karod egyenes marad, húzd a lapockáidat lefelé és egymás felé. A tested néhány centit feljebb emelkedik.','Tartsd meg 1 másodpercig, majd lassan engedd vissza az alsó helyzetbe.','Ez az első lépés a húzódzkodáshoz: ha ez szépen megy, a húzódzkodás is könnyebb lesz.'],
+  m:'Behajlítod a könyöködet (ez már húzódzkodás lenne), vagy lendülsz a lábaddal.'},
+ hang_knee_raise:{n:'Térdemelés a rúdon függve',fig:gf([fr(STAND,{a1n:178,a2n:178,a1f:178,a2f:178,l1n:6,l2n:-8,l1f:6,l2f:-8,fn:60,ff:60},900,300),fr(STAND,{t:172,a1n:178,a2n:178,a1f:178,a2f:178,l1n:115,l2n:20,fn:90,l1f:115,l2f:20,ff:90},1100,600)],{ay:['wrN',-230],ax:'wrN',noFloor:1,props:[{t:'hbar',w:40}],hl:['trunk','l1n']}),
+  mu:'Alsó has, csípőhajlító, fogóerő.',
+  s:['Lógj a rúdon nyújtott karokkal, a vállad kicsit lehúzva (ne a füled felé).','Lassan emeld fel a térdedet a mellkasod felé: a csípő hajlik, és a medence kicsit felfelé „billen”.','Fent tarts meg 1 másodpercet, majd lassan (2–3 mp alatt) engedd vissza a lábadat.','Lendítés nélkül csináld: ha lengesz, állj meg, és a következő ismétlés indulhat nyugodtan.'],
+  m:'Lendítesz a lábaddal, vagy csak a térd megy fel, a has nem dolgozik. Ha nehéz, csináld fekve (lábemelés).'},
+ glute_bridge:{n:'Csípőemelés (glute bridge)',fig:gf([fr(SUP,{t:-90,hd:-90,l1n:125,l2n:5,fn:90,l1f:125,l2f:5,ff:90,a1n:90,a2n:90,a1f:90,a2f:90},1000,300),fr(SUP,{t:-70,hd:-88,l1n:108,l2n:5,fn:90,l1f:108,l2f:5,ff:90,a1n:90,a2n:90,a1f:90,a2f:90},1000,700)],{hl:['hip']}),
+  mu:'Far (farizom), combhajlító, derék-nyújtó izmok.',
+  s:['Feküdj a hátadra, térded behajlítva, talpad a földön, kb. a combod hosszára a fenekedtől. Karod a tested mellett.','Szorítsd meg a farizmod, és told fel a csípődet addig, amíg a vállad, csípőd és térded egy egyenes vonalat alkot.','Fent szorítsd 1 másodpercig. A hasad ne engedje a derekat homorítani, a bordák „lefelé húzva”.','Lassan engedd vissza a csípődet, de ne ülj le teljesen a földre, indulhat az új ismétlés.'],
+  m:'A derekad homorít, a térded szétcsúszik, vagy a combod hátsó izma dolgozik a far helyett (talp túl messze).'},
+ sl_bridge:{n:'Egylábas csípőemelés',fig:gf([fr(SUP,{t:-90,hd:-90,l1n:125,l2n:5,fn:90,l1f:150,l2f:60,ff:150,a1n:90,a2n:90,a1f:90,a2f:90},1000,300),fr(SUP,{t:-70,hd:-88,l1n:108,l2n:5,fn:90,l1f:108,l2f:108,ff:170,a1n:90,a2n:90,a1f:90,a2f:90},1000,700)],{hl:['hip']}),
+  mu:'Far, combhajlító, törzs-stabilizálók.',
+  s:['Feküdj a hátadra, az egyik talpad a földön, a másik lábat nyújtsd ki a levegőbe (vagy emeld a térdedhez).','Szorítsd meg az egyik oldali farizmot, és told fel a csípődet egyenes vonalig.','A csípőd ne forduljon el és ne billenjen oldalra, a két csípőcsont maradjon azonos magasságban.','Lassan engedd vissza, majd az összes ismétlés után cserélj oldalt.'],
+  m:'A csípő elfordul, vagy a derék homorít. Ha nehéz, menj vissza a kétlábas változathoz.'},
+ dead_bug:{n:'Holtbogár (dead bug)',fig:gf([fr(SUP,{t:-90,hd:-90,a1n:180,a2n:180,a1f:180,a2f:180,l1n:180,l2n:90,fn:90,l1f:180,l2f:90,ff:90},900,300),fr(SUP,{t:-90,hd:-90,a1n:-100,a2n:-100,a1f:180,a2f:180,l1n:180,l2n:90,fn:90,l1f:100,l2f:100,ff:180},1400,600)],{hl:['trunk']}),
+  mu:'Mély hasizmok (haránt has), törzs-stabilizálók.',
+  s:['Feküdj a hátadra, karjaid fel a mennyezet felé, térded 90°-ban, combod függőleges (asztal-helyzet).','Told a derekadat finoman a földbe: a deréknál ne legyen rés. A hasad végig feszes marad.','Nyújtsd előre az egyik karodat a fejed mögé, és közben az ellenkező lábadat nyújtsd ki, anélkül hogy a derekad elemelkedne a földtől.','Térj vissza középre, majd a másik oldal. Kifelé nyúláskor fújd ki a levegőt.'],
+  m:'A derekad elemelkedik a földtől (homorít). Ilyenkor kisebb mozdulatot csinálj, vagy csak a lábat nyújtsd.'},
+ bird_dog:{n:'Madár-kutya (bird dog)',fig:gf([fr(QUAD,{},900,300),fr(QUAD,{a1n:105,a2n:105,l1f:-105,l2f:-105,ff:-100},1300,1200)],{hl:['trunk']}),
+  mu:'Derék-nyújtók, far, váll, törzs-stabilizálók.',
+  s:['Térdelj négykézláb: kéz a váll alatt, térd a csípő alatt, a gerinc egyenes, a tekintet a földre néz.','Feszítsd meg a hasad, mintha egy pohár víz állna a hátadon.','Nyújtsd előre az egyik karod és hátra az ellenkező lábad, amíg egy vonalat alkotnak a törzseddel. A csípő ne forduljon el.','Tartsd 2 másodpercig, térj vissza, majd cserélj oldalt. Lassan, kontrolláltan csináld.'],
+  m:'A derék belóg vagy a csípő oldalra billen. Ne emeld magasabbra a lábad, mint a csípőd.'},
+ calf_bw:{n:'Kétlábas sarokemelés',fig:gf([fr(STAND,{fn:112,ff:112,a1n:20,a2n:20,a1f:20,a2f:20},900,300),fr(STAND,{fn:55,ff:55,a1n:20,a2n:20,a1f:20,a2f:20},1000,600)],{props:[{t:'boxUnder',j:'toN',w:16}],hl:['l2n']}),
+  mu:'Vádli (és az Achilles-ín terhelése).',
+  s:['Állj egyenesen, lábfejek csípőszélességben. Egy fal vagy szék háttámlája mellett kapaszkodhatsz az egyensúlyhoz.','Lassan, 2–3 másodperc alatt emelkedj a lábujjhegyedre, amilyen magasra csak kényelmesen tudsz.','Fent 1 másodpercet állj meg, majd 2–3 másodperc alatt engedd vissza a sarkadat a földre.','Mindig lassú és egyenletes mozdulatokkal, lökés és ugrálás nélkül. Ha az Achilles-ínnál húzást vagy fájdalmat érzel, azonnal hagyd abba.'],
+  m:'Gyors „pattogás” vagy a bokák befelé-kifelé dőlése. Az Achilles-ínt sérülés után csak orvosi engedéllyel terheld.'},
+ rev_lunge:{n:'Hátra lépéses kitörés',fig:gf([fr(STAND,{},900,300),fr(STAND,{t:178,l1n:88,l2n:-8,fn:90,l1f:-5,l2f:-90,ff:-30,a1n:3,a2n:3,a1f:3,a2f:3},1300,600)],{ax:'anN',hl:['l1n','hip']}),
+  mu:'Comb, far, combhajlító; egyensúly.',
+  s:['Állj egyenesen, kezeid a csípődön, lábaid csípőszélességben. Egy fal vagy szék mellett az egyensúly könnyebb.','Lépj hátra az egyik lábaddal egy nagy lépést, a lábujjad a földön, a sarok fent.','Hajlítsd mindkét térdet, amíg a hátsó térded majdnem a földhöz ér. Az elülső térd a bokád fölött marad, nem megy előre a lábujjak elé.','Told el a földet az elülső lábaddal, és lépj vissza kiindulásba. Ismétlés után cserélj lábat.'],
+  m:'Az elülső térd befelé dől, a törzs előre dől, vagy a lépés túl rövid. Ha nehéz, csak félig ereszkedj.'},
 };
 const GUIDE_MATCH=[
+ [/felállás székről|székről/i,'chair_squat'],[/testsúlyos guggol/i,'bw_squat'],[/térdelő fekvőtámasz/i,'knee_pushup'],[/negatív húzódzkod/i,'neg_pullup'],[/lapockahúzás/i,'scap_pull'],[/függeszked/i,'dead_hang'],[/térdemelés a rúdon|függő térdemel/i,'hang_knee_raise'],
+ [/egylábas.*(glute|csípőemel)/i,'sl_bridge'],[/glute bridge/i,'glute_bridge'],[/holtbogár|dead bug/i,'dead_bug'],[/madár-?kutya|bird dog/i,'bird_dog'],[/sarokemel/i,'calf_bw'],[/hátra lépéses kitörés|reverse lunge/i,'rev_lunge'],
  [/pull.?through/i,'pull_through'],[/kézisúlyzós (fekve)?nyomás|fekvenyomás kézisúly/i,'incline_db'],[/gépi evez/i,'row_chest'],[/gépi tricepsz/i,'pushdown'],[/farizom.?gép/i,'glute_kick'],
  [/pallof/i,'pallof'],[/landmine/i,'landmine'],[/kitör|lunge/i,'lunge'],[/lábemel|leg raise/i,'leg_raise'],[/oldalsó támasz|alkartámasz|plank|deszka/i,'plank'],[/egykezes evez|kézisúlyzó(s|val)? evez|evezés kézisúly/i,'row_db'],
  [/csúszó lábhajlít|nordic/i,'slider_curl'],[/ülő lábhajlít|seated leg curl/i,'leg_curl_seated'],[/lábhajlít/i,'leg_curl_lying'],
@@ -2759,6 +2819,7 @@ function guideTips(e,orig){
   return `<details class="more" data-od="tp${e.id}" ${open?'open':''} style="flex-basis:100%"><summary>Hogyan csináld? · ábra${e.alt&&e.alt!=='—'?(e.cali?' · progresszió':' · alternatíva'):''}</summary>
     <div class="gwrap"><div class="gfig" data-k="${k}">${open?figHTML('g_'+k):''}</div>
     <ol class="gsteps">${G.s.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>
+    ${G.mu?`<p class="small" style="margin:6px 0 0"><b>Dolgozó izmok:</b> ${esc(G.mu)}</p>`:''}
     ${G.m?`<p class="small" style="margin:6px 0 0"><b>Gyakori hiba:</b> ${esc(G.m)}</p>`:''}
     ${e.tip?`<p class="small muted" style="margin:6px 0 0"><b>Miért ez a gyakorlat?</b> ${esc(e.tip)}</p>`:''}${alt}
     ${G.n&&G.n.toLowerCase()!==String(e.name).toLowerCase()?`<p class="small muted" style="margin:6px 0 0">Ábra: ${esc(G.n)}</p>`:''}</div></details>`;
@@ -2858,7 +2919,7 @@ document.addEventListener('input',ev=>{
   if(ui.edit&&ui.tab==='info'){ const d=ui.edit.draft;
     if(t.dataset.pf){ d[t.dataset.pf]= t.type==='checkbox'? t.checked : t.value; return; }
     if(t.dataset.df){ d.days[+t.dataset.d][t.dataset.df]=t.value; return; }
-    if(t.dataset.ef){ const e=d.days[+t.dataset.d].ex[+t.dataset.e]; if(t.type==='checkbox'){ e.ssNext=t.checked; render(); } else e[t.dataset.ef]=t.value; return; }
+    if(t.dataset.ef){ const e=d.days[+t.dataset.d].ex[+t.dataset.e]; if(t.type==='checkbox'){ if(t.dataset.ef==='unitSec') e.unit=t.checked?'sec':'reps'; else if(t.dataset.ef==='bw') e.bw=t.checked; else e.ssNext=t.checked; render(); } else e[t.dataset.ef]=t.value; return; }
   }
   if(t.dataset.bw){ const ss=S.sessions[t.dataset.bw]; if(ss){ const v=parseBw(t.value); if(v!==ss.bw&&(v!=null||t.value.trim()==='')){ if(v==null) delete ss.bw; else ss.bw=v; queue(ss.id); } } return; }
   if(t.dataset.machine){ S.settings.machine[t.dataset.machine]=t.value; queue('settings'); return; }
