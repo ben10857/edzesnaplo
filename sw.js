@@ -2,7 +2,6 @@
 // A tárolt verziót adja azonnal; a háttérben (indításkor és amikor az app előtérbe kerül)
 // a szerverrel ellenőrzi, van-e új verzió, és ha igen, szól az appnak („Új verzió érhető el”).
 const CACHE = 'edzesnaplo-feaefb84-2';
-const CACHE3D = 'edzesnaplo-3d';   // opcionális 3D-s gyakorlatok; csak a kiválasztott program gyakorlatai vannak benne
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icon-180.png', './icon-192.png', './icon-512.png'];
 const PAGE = new URL('./index.html', self.location).href;
@@ -18,7 +17,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== CACHE3D).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -39,21 +38,7 @@ async function checkPage() {
     await cache.put(PAGE, res.clone());
   } catch (e) { /* offline */ }
 }
-// A 3D-s fájlok: csak a megadott listát tartjuk meg, a hiányzókat letöltjük (offline-first: letöltés után net nélkül is megvannak)
-async function sync3d(files) {
-  const cache = await caches.open(CACHE3D);
-  const want = new Set(files.map(f => new URL(f, self.location).href));
-  for (const r of await cache.keys()) if (!want.has(r.url)) await cache.delete(r);
-  await Promise.all([...want].map(async u => {
-    if (await cache.match(u)) return;
-    try { const r = await fetch(u); if (r.ok) await cache.put(u, r); } catch (e) { /* offline: később újrapróbálja */ }
-  }));
-}
-self.addEventListener('message', e => {
-  const d = e.data; if (!d) return;
-  if (d.type === 'check') e.waitUntil(checkPage());
-  else if (d.type === 'cache3d') e.waitUntil(sync3d(Array.isArray(d.files) ? d.files : []));
-});
+self.addEventListener('message', e => { if (e.data && e.data.type === 'check') e.waitUntil(checkPage()); });
 
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -61,16 +46,6 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   const isFont = url.host === 'fonts.googleapis.com' || url.host === 'fonts.gstatic.com';
   if (url.origin !== self.location.origin && !isFont) return;
-  if (url.origin === self.location.origin && url.pathname.includes('/3d/')) {
-    e.respondWith((async () => {
-      const c = await caches.open(CACHE3D);
-      const hit = await c.match(req);
-      if (hit) return hit;
-      try { const r = await fetch(req); if (r.ok) await c.put(req, r.clone()); return r; }
-      catch (err) { return new Response('', { status: 504 }); }
-    })());
-    return;
-  }
   const isPage = req.mode === 'navigate';
   const key = isPage ? PAGE : req;
 
