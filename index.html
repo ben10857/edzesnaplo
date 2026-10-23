@@ -253,6 +253,15 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--day);flex:none}
 .fig .cab{stroke:var(--muted);stroke-width:1.3;fill:none;stroke-dasharray:4 2}
 .gthumb{flex:none;width:58px;height:58px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:1px;display:block;margin-left:auto}
 .gthumb svg{width:100%;height:100%;display:block}
+.fig .bdo{fill:var(--muted);stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round}
+.fig .bdf{fill:var(--surface2);stroke:none}
+.fig .far .bdf{fill:var(--line)}
+.fig .mus{stroke:none}.fig .mus.m{fill:var(--hl);opacity:.9}.fig .mus.s{fill:var(--hl);opacity:.38}
+.fig .arc{fill:none;stroke:var(--blue);stroke-width:2.2;stroke-linecap:round}.fig .arh{fill:var(--blue)}
+.fig .arch{fill:none;stroke:var(--bg);stroke-width:5;stroke-linecap:round}.fig .arhh{fill:var(--bg);stroke:var(--bg);stroke-width:2.4;stroke-linejoin:round}
+.gmus{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+.gmus span{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.gmus span.m{background:var(--hl);border-color:var(--hl);color:#fff;font-weight:600}
 .gwrap{margin-top:8px}
 .gfig{width:100%;max-width:300px;aspect-ratio:1/1;margin:0 auto 8px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:6px}
 .gfig svg{width:100%;height:100%;display:block}
@@ -2358,12 +2367,12 @@ function figBox(fig){
   const total=20; for(let i=0;i<=total;i++){ const J=figFK(fig,figAt(fig,i*400)); for(const k in J){ if(k==='_c') continue; const r=k==='head'?FIG_L.HR:0; x0=Math.min(x0,J[k][0]-r); x1=Math.max(x1,J[k][0]+r); y0=Math.min(y0,J[k][1]-r); y1=Math.max(y1,J[k][1]+r); } }
   for(const pr of fig.props||[]){ const pts= pr.t==='cable'? [[pr.x,pr.y]] : pr.t==='stack'? [[pr.x,-(pr.h||118)-4],[pr.x+16,0]] : pr.t==='box'? [[pr.x,pr.y],[pr.x+pr.w,pr.y+pr.h]] : pr.t==='wall'? [[pr.x,y0]] : [];
     for(const q of pts){ x0=Math.min(x0,q[0]); x1=Math.max(x1,q[0]); y0=Math.min(y0,q[1]); y1=Math.max(y1,q[1]); } }
-  if(!fig.noFloor) y1=Math.max(y1,0); x0-=10; x1+=10; y0-=8; y1+=6;
+  if(!fig.noFloor) y1=Math.max(y1,0); const pd=fig.ana?9:0; x0-=10+pd; x1+=10+pd; y0-=8+pd; y1+=6+pd;
   const w=x1-x0, h=y1-y0, s=Math.max(w,h); const cx=(x0+x1)/2, cy=(y0+y1)/2;
   fig._box=[cx-s/2,cy-s/2,s,s]; return fig._box;
 }
 const fp=P=>P[0].toFixed(1)+' '+P[1].toFixed(1);
-function figSVG(J,fig){
+function figSVG(J,fig,J1){
   const seg=(a,b,cls)=>`<path class="${cls}" d="M${fp(J[a])}L${fp(J[b])}"/>`;
   const hl=new Set(fig.hl||[]);
   const limb=(side,cls)=>seg('sh'+side,'el'+side,cls)+seg('el'+side,'wr'+side,cls)+seg('wr'+side,'ha'+side,cls+' hand');
@@ -2385,18 +2394,140 @@ function figSVG(J,fig){
     else if(pr.t==='boxUnder'){ const j=J[pr.j]; props+=`<rect class="prf" x="${(j[0]-pr.w/2).toFixed(1)}" y="${(j[1]+2).toFixed(1)}" width="${pr.w}" height="${Math.max(2,-j[1]-2).toFixed(1)}" rx="2"/>`; }
     else if(pr.t==='box') props+=`<rect class="prf" x="${pr.x}" y="${Math.min(pr.y,pr.y+pr.h)}" width="${pr.w}" height="${Math.abs(pr.h)}" rx="2"/>`;
     else if(pr.t==='stick'){ const a=J.pelvis,b=J.neck; const ex=[b[0]+(b[0]-a[0])*.35,b[1]+(b[1]-a[1])*.35], ux=(b[1]-a[1]), uy=-(b[0]-a[0]), l=Math.hypot(ux,uy)||1, o=-5; props+=`<path class="band" d="M${(a[0]+ux/l*o-(b[0]-a[0])*.1).toFixed(1)} ${(a[1]+uy/l*o-(b[1]-a[1])*.1).toFixed(1)}L${(ex[0]+ux/l*o).toFixed(1)} ${(ex[1]+uy/l*o).toFixed(1)}"/>`; }
-    else if(typeof figPropExt==='function') props+=figPropExt(pr,J);
+    else if(typeof figPropExt==='function'){ if(!(fig.ana&&pr.t==='mark')) props+=figPropExt(pr,J); }
   }
+  if(fig.ana) return props+anaSVG(J,fig,J1);
   return `${props}<g class="far">${limb('F','lb')}${leg('F','lb')}</g>`
     +`<path class="lb" d="${trunk}"/><path class="lb" d="${segD('neck','head')}"/>${leg('N','lb')}<circle class="hd" cx="${J.head[0].toFixed(1)}" cy="${J.head[1].toFixed(1)}" r="${FIG_L.HR}"/>${limb('N','lb')}`
     +H('trunk',trunk)+H('a1n',segD('shN','elN'))+H('a2n',segD('elN','wrN'))+H('a1f',segD('shF','elF'))+H('a2f',segD('elF','wrF'))
     +H('l1n',segD('hipN','knN'))+H('l2n',segD('knN','anN'))+H('l1f',segD('hipF','knF'))+H('l2f',segD('knF','anF'))
     +(hl.has('hip')?`<circle class="hlc" cx="${J.pelvis[0].toFixed(1)}" cy="${J.pelvis[1].toFixed(1)}" r="7"/>`:'');
 }
-function figHTML(id,big){
+/* ---------- Anatómiai testrajz (oldalnézet): sziluett, izomkiemelés, ízület-nyilak ---------- */
+const MUSHU={chest:'Mell',abs:'Has',lats:'Hát (lats)',traps:'Felső hát / trapéz',low:'Derék-nyújtók',delts:'Váll',biceps:'Bicepsz',triceps:'Tricepsz',forearms:'Alkar',glutes:'Far',quads:'Comb (elöl)',hams:'Combhajlító',calves:'Vádli'};
+// fő izmok ; segítő izmok
+const MUS={chest_press:'chest;triceps,delts',incline_machine:'chest;delts,triceps',incline_db:'chest;delts,triceps',bench_bb:'chest;triceps,delts',pec_deck:'chest;delts',reverse_pec:'delts;traps,lats',cable_fly_low:'chest;delts',
+ shoulder_press_m:'delts;triceps',db_shoulder_press:'delts;triceps,traps',lat_raise_cable:'delts;traps',lat_raise_machine:'delts;traps',lat_raise_db:'delts;traps',oh_triceps:'triceps;',pushdown:'triceps;forearms',
+ leg_curl_seated:'hams;calves',leg_curl_lying:'hams;calves',calf_seated:'calves;',calf_standing:'calves;',pulldown:'lats;biceps,forearms',pullup_assist:'lats;biceps,forearms',pullup:'lats;biceps,forearms,abs',
+ row_chest:'lats,traps;biceps,delts',row_cable:'lats,traps;biceps,delts',straight_pulldown:'lats;triceps',face_pull:'delts,traps;forearms',bayesian:'biceps;forearms',preacher:'biceps;forearms',incline_curl:'biceps;forearms',
+ cable_curl:'biceps;forearms',db_curl:'biceps;forearms',leg_ext:'quads;',glute_kick:'glutes;hams',hip_abd:'glutes;',hack:'quads;glutes,hams',leg_press:'quads;glutes,hams',squat_bb:'quads,glutes;hams,abs,low',
+ hip_thrust:'glutes;hams,quads',sl_hip_thrust:'glutes;hams,abs',hip_ext45:'glutes,hams;low',rdl:'hams,glutes;low,forearms',cable_crunch:'abs;',dip:'triceps,chest;delts',pushup:'chest,triceps;delts,abs',
+ aussie_row:'lats,traps;biceps,abs',bulgarian:'quads,glutes;hams,abs',slider_curl:'hams;glutes,calves',pistol:'quads,glutes;hams,abs,calves',handstand_wall:'delts;triceps,abs,traps',lsit:'abs;quads,triceps',
+ pike_pushup:'delts,triceps;chest,abs',planche_lean:'delts,abs;chest,triceps',pallof:'abs;delts',landmine:'delts;chest,triceps',lunge:'quads,glutes;hams,calves',leg_raise:'abs;quads',plank:'abs;glutes,quads,delts',
+ row_db:'lats;biceps,traps,forearms',deadlift:'glutes,hams,low;traps,lats,quads,forearms',pull_through:'glutes,hams;abs,low',bw_squat:'quads,glutes;hams,abs',chair_squat:'quads,glutes;hams',knee_pushup:'chest,triceps;delts,abs',
+ neg_pullup:'lats;biceps,forearms,abs',dead_hang:'forearms;delts,lats',scap_pull:'traps,lats;forearms',hang_knee_raise:'abs;forearms,quads',glute_bridge:'glutes;hams,abs',sl_bridge:'glutes;hams,abs',dead_bug:'abs;quads',
+ bird_dog:'glutes,low;abs,delts,hams',calf_bw:'calves;',rev_lunge:'quads,glutes;hams'};
+// milyen gépen / eszközzel
+const EQ={chest_press:'Ülő mellnyomó gép (chest press)',incline_machine:'Ferde mellnyomó gép vagy Smith-gép, a pad kb. 30°-os',incline_db:'Állítható pad (kb. 30°) + kézisúlyzók',bench_bb:'Fekvenyomó pad + rúd + állvány',pec_deck:'Pec deck (tárogató gép)',
+ reverse_pec:'Pec deck, szemben a háttámlával ülve (hátsó váll)',cable_fly_low:'Kábeles állvány, a csigák alul',shoulder_press_m:'Ülő vállnyomó gép',db_shoulder_press:'Pad háttámlával + kézisúlyzók',lat_raise_cable:'Kábeles állvány, alsó csiga',
+ lat_raise_machine:'Oldalemelő gép',lat_raise_db:'Kézisúlyzók',oh_triceps:'Kábeles állvány, kötél fogantyú',pushdown:'Kábeles állvány, felső csiga, kötél vagy egyenes fogantyú',leg_curl_seated:'Ülő lábhajlító gép',leg_curl_lying:'Fekvő lábhajlító gép',
+ calf_seated:'Ülő vádliemelő gép',calf_standing:'Álló vádliemelő gép vagy lépcsőfok',pulldown:'Lehúzó gép (lat pulldown), széles vagy V fogantyú',pullup_assist:'Asszisztált húzódzkodó gép',pullup:'Húzódzkodó rúd',row_chest:'Mellkas-támaszos evezőgép',
+ row_cable:'Ülő kábeles evezőgép, V fogantyú',straight_pulldown:'Kábeles állvány, felső csiga',face_pull:'Kábeles állvány, kötél, szemmagasságban',bayesian:'Kábeles állvány, alsó csiga',preacher:'Scott-pad (preacher), rúd vagy gép',
+ incline_curl:'Állítható pad (kb. 60°) + kézisúlyzók',cable_curl:'Kábeles állvány, alsó csiga',db_curl:'Kézisúlyzók',leg_ext:'Lábnyújtó gép',glute_kick:'Farizom-gép vagy kábel + bokaszíj',hip_abd:'Csípő-abdukciós gép (combkülső)',hack:'Hack guggoló gép',
+ leg_press:'Lábtoló gép',squat_bb:'Guggolóállvány + rúd',hip_thrust:'Pad + rúd vagy hip thrust gép',sl_hip_thrust:'Pad (a váll alá)',hip_ext45:'45°-os hiperextension pad',rdl:'Rúd vagy kézisúlyzók',cable_crunch:'Kábeles állvány, kötél, felső csiga',
+ dip:'Párhuzamos korlát (tolódzkodó)',pushup:'Nincs, csak a padló',aussie_row:'Alacsony rúd (Smith-gép vagy állvány)',bulgarian:'Pad + kézisúlyzók',slider_curl:'Csúszókorong vagy törölköző, sima padló',pistol:'Doboz vagy pad',handstand_wall:'Fal',
+ lsit:'Párhuzamos korlát vagy két szék',pike_pushup:'Padló (a lábad padon is lehet)',planche_lean:'Padló',pallof:'Kábeles állvány, mellmagasságban',landmine:'Rúd, az egyik vége rögzítve (landmine)',lunge:'Nincs (testsúly vagy kézisúlyzó)',
+ leg_raise:'Szőnyeg',plank:'Szőnyeg',row_db:'Pad + kézisúlyzó',deadlift:'Rúd + tárcsák',pull_through:'Kábeles állvány, alsó csiga, kötél',bw_squat:'Nincs, csak a testsúlyod',chair_squat:'Stabil szék',knee_pushup:'Szőnyeg',
+ neg_pullup:'Húzódzkodó rúd + szék',dead_hang:'Húzódzkodó rúd',scap_pull:'Húzódzkodó rúd',hang_knee_raise:'Húzódzkodó rúd',glute_bridge:'Szőnyeg',sl_bridge:'Szőnyeg',dead_bug:'Szőnyeg',bird_dog:'Szőnyeg',calf_bw:'Fal vagy szék (kapaszkodni), lépcsőfok',rev_lunge:'Nincs (fal vagy szék az egyensúlyhoz)'};
+const musOf=k=>{ const s=MUS[k]; if(s==null) return null; const [a,b]=s.split(';'); return {main:a?a.split(','):[],sec:b?b.split(','):[]}; };
+const aF=v=>v.toFixed(1);
+function aSmooth(P){ // zárt Catmull-Rom → köbös Bézier
+  const n=P.length; let d='M'+aF(P[0][0])+' '+aF(P[0][1]);
+  for(let i=0;i<n;i++){ const p0=P[(i-1+n)%n],p1=P[i],p2=P[(i+1)%n],p3=P[(i+2)%n];
+    d+='C'+aF(p1[0]+(p2[0]-p0[0])/6)+' '+aF(p1[1]+(p2[1]-p0[1])/6)+' '+aF(p2[0]-(p3[0]-p1[0])/6)+' '+aF(p2[1]-(p3[1]-p1[1])/6)+' '+aF(p2[0])+' '+aF(p2[1]); }
+  return d+'Z';
+}
+function aRad(pr,t){ // profil [t, elöl, hátul] vezérpontok közt, sima átmenettel
+  if(t<=pr[0][0]) return [pr[0][1],pr[0][2]]; const L=pr.length; if(t>=pr[L-1][0]) return [pr[L-1][1],pr[L-1][2]];
+  for(let i=0;i<L-1;i++){ const a=pr[i],b=pr[i+1]; if(t<=b[0]){ let u=(t-a[0])/(b[0]-a[0]); u=u*u*(3-2*u); return [a[1]+(b[1]-a[1])*u,a[2]+(b[2]-a[2])*u]; } }
+  return [pr[L-1][1],pr[L-1][2]];
+}
+// pt(t)→[x,y] a tengelyen, nm(t)→elülső egységnormális; bell: izomhas-forma (a végeken keskenyedik)
+function aShape(pt,nm,pr,t0,t1,bell,n){
+  n=n||7; const F=[],B=[];
+  for(let i=0;i<=n;i++){ const u=i/n, t=t0+(t1-t0)*u, p=pt(t), q=nm(t), r=aRad(pr,t), k=bell?(.4+.6*Math.sin(Math.PI*u)):1;
+    F.push([p[0]+q[0]*r[0]*k,p[1]+q[1]*r[0]*k]); B.push([p[0]-q[0]*r[1]*k,p[1]-q[1]*r[1]*k]); }
+  const cap=(ta,tb,rr)=>{ const a=pt(ta),b=pt(tb),dx=a[0]-b[0],dy=a[1]-b[1],l=Math.hypot(dx,dy)||1; return [a[0]+dx/l*rr,a[1]+dy/l*rr]; };
+  const r0=aRad(pr,t0),r1=aRad(pr,t1), c0=bell?.55:.9, c1=bell?.55:.9;
+  const e=Math.max(.001,(t1-t0)*.08);
+  return aSmooth([...F,cap(t1,t1-e*Math.sign(t1-t0||1),(r1[0]+r1[1])/2*c1),...B.reverse(),cap(t0,t0+e*Math.sign(t1-t0||1),(r0[0]+r0[1])/2*c0)]);
+}
+const A_PROF={thigh:[[0,8.2,9.2],[.3,7.9,6.9],[.7,6,5.6],[1,4.5,4.5]],shin:[[0,4.5,4.6],[.28,4.3,5.6],[.65,3.4,4.2],[1,2.8,2.8]],foot:[[0,3,3.4],[.5,2.4,2.2],[1,1.5,1.3]],
+  ua:[[0,4.9,4.7],[.35,4.8,4.6],[.75,3.9,3.9],[1,3.3,3.3]],fa:[[0,3.4,3.4],[.3,3.8,3.8],[1,2.3,2.3]],hand:[[0,2.4,2.2],[1,1.6,1.5]],neck:[[0,3.4,4],[1,3.2,3.2]],
+  torso:[[0,7.4,9.2],[.2,7,7.2],[.55,9.8,8],[.85,7.4,7],[1,4.4,4.8]]};
+function aLimb(a,b,pr,t0,t1,bell){ const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1, q=[dy/l,-dx/l];
+  return aShape(t=>[a[0]+dx*t,a[1]+dy*t],()=>q,pr,t0,t1,bell,6); }
+function aTorso(J){
+  const P=J.pelvis,N=J.neck,vx=N[0]-P[0],vy=N[1]-P[1],ln=Math.hypot(vx,vy)||1, c=J._c||0, C=[(P[0]+N[0])/2+(-vy/ln)*c*-1,(P[1]+N[1])/2+(vx/ln)*c*-1];
+  const pt=t=>[(1-t)*(1-t)*P[0]+2*(1-t)*t*C[0]+t*t*N[0],(1-t)*(1-t)*P[1]+2*(1-t)*t*C[1]+t*t*N[1]];
+  const nm=t=>{ const tx=2*(1-t)*(C[0]-P[0])+2*t*(N[0]-C[0]), ty=2*(1-t)*(C[1]-P[1])+2*t*(N[1]-C[1]), l=Math.hypot(tx,ty)||1; return [-ty/l,tx/l]; };
+  return {pt,nm};
+}
+function aMuscle(m,J,T){ // → SVG path az izomhoz (közeli oldal)
+  const sub=(pr,side,k)=>pr.map(r=>side>0?[r[0],r[1]*k,-r[1]*.18]:[r[0],-r[2]*.18,r[2]*k]);
+  switch(m){
+    case 'abs': return aShape(T.pt,T.nm,sub(A_PROF.torso,1,.92),.1,.55,1);
+    case 'chest': return aShape(T.pt,T.nm,sub(A_PROF.torso,1,.92),.5,.84,1);
+    case 'lats': return aShape(T.pt,T.nm,sub(A_PROF.torso,-1,.92),.3,.72,1);
+    case 'traps': return aShape(T.pt,T.nm,sub(A_PROF.torso,-1,.92),.66,1,1);
+    case 'low': return aShape(T.pt,T.nm,sub(A_PROF.torso,-1,.92),.02,.36,1);
+    case 'glutes': return aShape(T.pt,T.nm,[[0,0,10.8],[.2,0,8.4]],-.04,.24,1);
+    case 'delts': return aLimb(J.shN,J.elN,[[0,5.4,5.2],[.5,4.8,4.7]],0,.55,1);
+    case 'biceps': return aLimb(J.shN,J.elN,sub(A_PROF.ua,1,.9),.15,.88,1);
+    case 'triceps': return aLimb(J.shN,J.elN,sub(A_PROF.ua,-1,.9),.12,.88,1);
+    case 'forearms': return aLimb(J.elN,J.wrN,[[0,3.1,3.1],[.3,3.5,3.5],[1,2]],.05,.92,1);
+    case 'quads': return aLimb(J.hipN,J.knN,sub(A_PROF.thigh,1,.9),.08,.94,1);
+    case 'hams': return aLimb(J.hipN,J.knN,sub(A_PROF.thigh,-1,.9),.08,.94,1);
+    case 'calves': return aLimb(J.knN,J.anN,sub(A_PROF.shin,-1,.9),.04,.7,1);
+  }
+  return '';
+}
+// ízületi szögek (könyök, térd, csípő, váll) – a mozgásirány-nyilakhoz
+function aJoints(J){ return [
+  {n:'el',a:J.shN,b:J.elN,c:J.wrN},{n:'kn',a:J.hipN,b:J.knN,c:J.anN},{n:'hp',a:J.neck,b:J.pelvis,c:J.knN},{n:'sh',a:J.pelvis,b:J.neck,c:J.elN}]; }
+const aAng=j=>{ const ux=j.a[0]-j.b[0],uy=j.a[1]-j.b[1],wx=j.c[0]-j.b[0],wy=j.c[1]-j.b[1]; return Math.atan2(ux*wy-uy*wx,ux*wx+uy*wy)*180/Math.PI; };
+function aJointInfo(fig){ // melyik ízület mozog érdemben, és merre hajlik (stabil előjel)
+  if(fig._ji) return fig._ji;
+  const all=fig._p.map(p=>aJoints(figFK(fig,p))), out={};
+  for(const n of ['el','kn','hp','sh']){ const ang=all.map(js=>aAng(js.find(j=>j.n===n))), abs=ang.map(Math.abs), mn=Math.min(...abs), mx=Math.max(...abs);
+    if(mx-mn>=28) out[n]={s:Math.sign(ang[abs.indexOf(mn)])||1}; }
+  return fig._ji=out;
+}
+function aArrows(J0,J1,fig){
+  const info=aJointInfo(fig); let s='';
+  const j0=aJoints(J0), j1=aJoints(J1);
+  for(const n in info){ const a=j0.find(j=>j.n===n), b=j1.find(j=>j.n===n), t0=Math.abs(aAng(a)), t1=Math.abs(aAng(b)), dt=t1-t0;
+    if(Math.abs(dt)<.9) continue;
+    const sg=info[n].s, ux=a.a[0]-a.b[0], uy=a.a[1]-a.b[1], bis=Math.atan2(uy,ux)+sg*(t0*Math.PI/180)/2, dir=dt<0?-sg:sg, R=15+(n==='hp'?2:0), h=26*Math.PI/180;
+    const p=(al)=>[a.b[0]+Math.cos(al)*R,a.b[1]+Math.sin(al)*R], st=p(bis-dir*h), en=p(bis+dir*h), tx=-Math.sin(bis+dir*h)*dir, ty=Math.cos(bis+dir*h)*dir;
+    const ad=`M${aF(st[0])} ${aF(st[1])}A${R} ${R} 0 0 ${dir>0?1:0} ${aF(en[0])} ${aF(en[1])}`, hd=`M${aF(en[0]+tx*4.6)} ${aF(en[1]+ty*4.6)}L${aF(en[0]-ty*3.2)} ${aF(en[1]+tx*3.2)}L${aF(en[0]+ty*3.2)} ${aF(en[1]-tx*3.2)}Z`;
+    s+=`<path class="arch" d="${ad}"/><path class="arhh" d="${hd}"/><path class="arc" d="${ad}"/><path class="arh" d="${hd}"/>`; }
+  return s;
+}
+function anaSVG(J,fig,J1){
+  const T=aTorso(J), side=s=>({arm:[aLimb(J['sh'+s],J['el'+s],A_PROF.ua,0,1),aLimb(J['el'+s],J['wr'+s],A_PROF.fa,0,1),aLimb(J['wr'+s],J['ha'+s],A_PROF.hand,0,1)],
+    leg:[aLimb(J['hip'+s],J['kn'+s],A_PROF.thigh,0,1),aLimb(J['kn'+s],J['an'+s],A_PROF.shin,0,1),aLimb(J['an'+s],J['to'+s],A_PROF.foot,0,1)]});
+  const dot=(c,r)=>`M${aF(c[0]-r)} ${aF(c[1])}a${r} ${r} 0 1 0 ${2*r} 0a${r} ${r} 0 1 0 ${-2*r} 0Z`;
+  const N=side('N'), F=side('F'); N.arm.push(dot(J.shN,5.3)); F.arm.push(dot(J.shF,5.1));
+  const bd=(...ds)=>ds.flat().map(d=>`<path class="bdo" d="${d}"/>`).join('')+ds.flat().map(d=>`<path class="bdf" d="${d}"/>`).join('');
+  const hv=[J.head[0]-J.neck[0],J.head[1]-J.neck[1]], hl=Math.hypot(hv[0],hv[1])||1, ux=hv[0]/hl, uy=hv[1]/hl, q=[-uy,ux];   // q = a fej előre-iránya
+  const neck=aLimb(J.neck,[J.neck[0]+hv[0]*.62,J.neck[1]+hv[1]*.62],A_PROF.neck,0,1);
+  const hx=J.head[0], hy=J.head[1], ng=[hx+q[0]*8.2-ux*1.4,hy+q[1]*8.2-uy*1.4];
+  const nose=`M${aF(ng[0]-ux*2.2)} ${aF(ng[1]-uy*2.2)}L${aF(ng[0]+q[0]*2.4+ux*.4)} ${aF(ng[1]+q[1]*2.4+uy*.4)}L${aF(ng[0]+ux*2.2)} ${aF(ng[1]+uy*2.2)}Z`;
+  const circ=`M${aF(hx-8)} ${aF(hy)}a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z`;
+  const m=fig.mus||{main:[],sec:[]};
+  const mus=(list,cls)=>list.map(k=>`<path class="mus ${cls}" d="${aMuscle(k,J,T)}"/>`).join('');
+  return `<g class="far">${bd(F.arm)}${bd(F.leg)}</g>`
+    +bd(aShape(T.pt,T.nm,A_PROF.torso,0,1,0,9))+bd(neck)+bd(circ,nose)
+    +bd(N.leg)+bd(N.arm)
+    +mus(m.sec,'s')+mus(m.main,'m')
+    +(J1?aArrows(J,J1,fig):'');
+}
+
+function figHTML(id,big,det){
   const fig=figFrames(id); if(!fig) return '';
   const b=figBox(fig);
-  return `<svg class="fig${big?' big':''}" data-fig="${id}" viewBox="${b.map(v=>v.toFixed(1)).join(' ')}" role="img" aria-label="Animált ábra: hogyan kell csinálni"><path class="gr" d="M${(b[0]).toFixed(1)} 0H${(b[0]+b[2]).toFixed(1)}"/><g class="fg">${figSVG(figFK(fig,figAt(fig,99999)),fig)}</g></svg>`;
+  return `<svg class="fig${big?' big':''}" data-fig="${id}"${det?' data-det="1"':''} viewBox="${b.map(v=>v.toFixed(1)).join(' ')}" role="img" aria-label="Animált ábra: hogyan kell csinálni"><path class="gr" d="M${(b[0]).toFixed(1)} 0H${(b[0]+b[2]).toFixed(1)}"/><g class="fg">${fig.ana&&det? figSVG(figFK(fig,fig._p[0]),fig,figFK(fig,figLerp(fig._p[0],fig._p[1]||fig._p[0],.15))) : figSVG(figFK(fig,figAt(fig,99999)),fig)}</g></svg>`;
 }
 let figRAF=null, figT0=performance.now();
 const figReduce=()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } };
@@ -2405,7 +2536,7 @@ function figTick(now){
   if(!els.length){ figRAF=null; return; }
   for(const el of els){ if(!el.getClientRects().length) continue; const fig=figFrames(el.dataset.fig); if(!fig) continue; const g=el.querySelector('.fg');
     const ms= figReduce()? (fig.f.slice(0,-1).reduce((a,f,i)=>a+(fig.f[i+1].d??900)+(fig.f[i+1].h??600),0)-50) : now-figT0;
-    g.innerHTML=figSVG(figFK(fig,figAt(fig,ms)),fig); }
+    g.innerHTML=figSVG(figFK(fig,figAt(fig,ms)),fig,el.dataset.det==='1'&&fig.ana? figFK(fig,figAt(fig,ms+90)):null); }
   figRAF= figReduce()? null : requestAnimationFrame(figTick);
 }
 function figStart(){ if(!figRAF) figRAF=requestAnimationFrame(figTick); }
@@ -2791,7 +2922,7 @@ const GUIDE_MATCH=[
  [/pike|hspu/i,'pike_pushup'],[/pseudo planche|fekvőtámasz/i,'pushup'],[/planche/i,'planche_lean'],[/kézenáll/i,'handstand_wall'],[/l-ül/i,'lsit'],
 ];
 function guideKey(e){ const nm=(e&&e.name)||''; if(!nm||/bemelegítés/i.test(nm)) return null; for(const [re,k] of GUIDE_MATCH) if(re.test(nm)) return k; return null; }
-for(const k in GUIDES){ FIGS['g_'+k]=GUIDES[k].fig; }
+for(const k in GUIDES){ FIGS['g_'+k]=GUIDES[k].fig; GUIDES[k].fig.ana=true; GUIDES[k].fig.mus=musOf(k)||{main:[],sec:[]}; }
 function figPropExt(pr,J){
   const P=J.pelvis, N=J.neck, vx=N[0]-P[0], vy=N[1]-P[1], ln=Math.hypot(vx,vy)||1, bx=vy/ln, by=-vx/ln; // bx,by: a hát felé mutató merőleges
   const f=v=>v.toFixed(1), pt=j=>J[j||'haN'];
@@ -2812,12 +2943,18 @@ function figPropExt(pr,J){
   }
   return '';
 }
+function gMusEq(k){
+  const m=musOf(k), eq=EQ[k];
+  const chips=m? m.main.map(x=>`<span class="m">${MUSHU[x]}</span>`).join('')+m.sec.map(x=>`<span>${MUSHU[x]}</span>`).join('') : '';
+  return `${eq?`<p class="small" style="margin:0 0 6px"><b>Gép / eszköz:</b> ${esc(eq)}</p>`:''}${chips?`<div class="gmus" aria-label="Dolgozó izmok">${chips}</div><p class="small muted" style="margin:0 0 8px">Színes: fő izom, halvány: segítő izom. A kék nyilak az ízületek mozgásirányát mutatják.</p>`:''}`;
+}
 function guideTips(e,orig){
   const k=guideKey(e); if(!k) return orig;
   const G=GUIDES[k], open=ui.openD&&ui.openD['tp'+e.id];
   const alt= e.alt&&e.alt!=='—'? `<p class="muted small" style="margin:6px 0 0">${e.cali?'Progresszió / könnyítés':'Alternatíva'}: ${esc(e.alt)}</p>`:'';
   return `<details class="more" data-od="tp${e.id}" ${open?'open':''} style="flex-basis:100%"><summary>Hogyan csináld? · ábra${e.alt&&e.alt!=='—'?(e.cali?' · progresszió':' · alternatíva'):''}</summary>
-    <div class="gwrap"><div class="gfig" data-k="${k}">${open?figHTML('g_'+k):''}</div>
+    <div class="gwrap"><div class="gfig" data-k="${k}">${open?figHTML('g_'+k,false,true):''}</div>
+    ${gMusEq(k)}
     <ol class="gsteps">${G.s.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>
     ${G.mu?`<p class="small" style="margin:6px 0 0"><b>Dolgozó izmok:</b> ${esc(G.mu)}</p>`:''}
     ${G.m?`<p class="small" style="margin:6px 0 0"><b>Gyakori hiba:</b> ${esc(G.m)}</p>`:''}
@@ -2830,7 +2967,7 @@ function guideThumb(e){
 }
 
 if(FIGS.scappull) FIGS.scappull.noFloor=1;
-document.addEventListener('toggle',ev=>{ const d=ev.target; if(d&&d.open&&d.querySelector){ const g=d.querySelector('.gfig'); if(g&&!g.firstElementChild&&g.dataset.k){ g.innerHTML=figHTML('g_'+g.dataset.k); figStart(); } } },true);
+document.addEventListener('toggle',ev=>{ const d=ev.target; if(d&&d.open&&d.querySelector){ const g=d.querySelector('.gfig'); if(g&&!g.firstElementChild&&g.dataset.k){ g.innerHTML=figHTML('g_'+g.dataset.k,false,true); figStart(); } } },true);
 
 /* ===================== ACTIONS ===================== */
 function startSession(day){
