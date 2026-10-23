@@ -229,9 +229,9 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--day);flex:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 .isprev{margin:0 14px 8px;padding:8px 10px;border-radius:9px;background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));font-size:13px;font-weight:600}
 /* animált ábrák */
-:root{--hl:#e8590c}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--hl:#ff9a5c}}
-:root[data-theme="dark"]{--hl:#ff9a5c}
+:root{--hl:#e8590c;--gl:#f1f3f6;--gm:#c9ced6;--gd:#8e95a0;--fl:#d6dae0;--fm:#b3b9c3;--fd:#868d98;--ol:#ffbf91;--om:#f2701f;--od:#b13d08;--seam:#6f7782}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--hl:#ff9a5c;--gl:#aeb6c2;--gm:#818998;--gd:#4f5663;--fl:#7c8492;--fm:#5d6572;--fd:#444b57;--ol:#ffb784;--om:#ea6a1c;--od:#a23706;--seam:#2a3039}}
+:root[data-theme="dark"]{--hl:#ff9a5c;--gl:#aeb6c2;--gm:#818998;--gd:#4f5663;--fl:#7c8492;--fm:#5d6572;--fd:#444b57;--ol:#ffb784;--om:#ea6a1c;--od:#a23706;--seam:#2a3039}
 .figb{flex:none;width:84px;height:84px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:2px;display:block}
 .figb.big{flex-basis:100%;width:100%;height:auto;aspect-ratio:1/1;max-height:300px;order:5;padding:6px}
 .figb svg{width:100%;height:100%;display:block}
@@ -254,9 +254,8 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--day);flex:none}
 .gthumb{flex:none;width:58px;height:58px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:1px;display:block;margin-left:auto}
 .gthumb svg{width:100%;height:100%;display:block}
 .fig .bdo{fill:var(--muted);stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round}
-.fig .bdf{fill:var(--surface2);stroke:none}
-.fig .far .bdf{fill:var(--line)}
-.fig .mus{stroke:none}.fig .mus.b{fill:var(--muted);opacity:.16;stroke:var(--muted);stroke-width:.5;stroke-opacity:.5}.fig .mus.m{fill:var(--hl);opacity:.9}.fig .mus.s{fill:var(--hl);opacity:.38}
+.fig .bdf{stroke:none}
+.fig .mus{stroke:none}.fig .mus.b{stroke:var(--seam);stroke-width:.6;stroke-opacity:.55}.fig .mus.s{opacity:.55}.fig .mus.m{stroke:var(--od);stroke-width:.5;stroke-opacity:.6}
 .fig .arc{fill:none;stroke:var(--blue);stroke-width:2.2;stroke-linecap:round}.fig .arh{fill:var(--blue)}
 .fig .arch{fill:none;stroke:var(--bg);stroke-width:5;stroke-linecap:round}.fig .arhh{fill:var(--bg);stroke:var(--bg);stroke-width:2.4;stroke-linejoin:round}
 .gmus{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
@@ -2472,24 +2471,25 @@ function aMs(pt,nm,pr,t0,t1,side,w,pw){
   return aSmooth([...O,...I.reverse()]);
 }
 const aSeg=(a,b)=>{ const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,q=[dy/l,-dx/l]; return {pt:t=>[a[0]+dx*t,a[1]+dy*t],nm:()=>q}; };
-function aMuscle(m,J,T){ // → SVG path az izomhoz (közeli oldal)
-  const th=aSeg(J.hipN,J.knN),sh=aSeg(J.knN,J.anN),ua=aSeg(J.shN,J.elN),fa=aSeg(J.elN,J.wrN),M=aMs;
+function aMuscle(m,J,T){ // → [{s:szegmens,d:útvonal}]
+  const th=aSeg(J.hipN,J.knN),sh=aSeg(J.knN,J.anN),ua=aSeg(J.shN,J.elN),fa=aSeg(J.elN,J.wrN),M=aMs,o=(s,d)=>({s,d});
   switch(m){
-    case 'abs': return M(T.pt,T.nm,A_PROF.torso,.06,.54,1,.9);
-    case 'chest': return M(T.pt,T.nm,A_PROF.torso,.5,.88,1,.95)+M(ua.pt,ua.nm,A_PROF.ua,0,.3,1,.5);
-    case 'lats': return M(T.pt,T.nm,A_PROF.torso,.28,.74,-1,.85);
-    case 'traps': return M(T.pt,T.nm,A_PROF.torso,.64,1.02,-1,.95,.5);
-    case 'low': return M(T.pt,T.nm,A_PROF.torso,0,.38,-1,.85);
-    case 'glutes': return M(T.pt,T.nm,A_PROF.torso,-.1,.2,-1,.97,.55)+M(th.pt,th.nm,A_PROF.thigh,-.05,.3,-1,.9,.55);
-    case 'delts': return M(ua.pt,ua.nm,A_PROF.ua,-.08,.46,1,1,.5)+M(ua.pt,ua.nm,A_PROF.ua,-.08,.46,-1,1,.5);
-    case 'biceps': return M(ua.pt,ua.nm,A_PROF.ua,.14,.9,1,.85);
-    case 'triceps': return M(ua.pt,ua.nm,A_PROF.ua,.1,.9,-1,.9);
-    case 'forearms': return M(fa.pt,fa.nm,A_PROF.fa,.04,.94,1,.8)+M(fa.pt,fa.nm,A_PROF.fa,.04,.94,-1,.8);
-    case 'quads': return M(th.pt,th.nm,A_PROF.thigh,.05,.95,1,.95);
-    case 'hams': return M(th.pt,th.nm,A_PROF.thigh,.05,.95,-1,.95);
-    case 'calves': return M(sh.pt,sh.nm,A_PROF.shin,.04,.66,-1,.97);
+    case 'abs': return [o('T',M(T.pt,T.nm,A_PROF.torso,.06,.54,1,.92))];
+    case 'chest': return [o('T',M(T.pt,T.nm,A_PROF.torso,.5,.88,1,.97)),o('ua',M(ua.pt,ua.nm,A_PROF.ua,0,.3,1,.5))];
+    case 'lats': return [o('T',M(T.pt,T.nm,A_PROF.torso,.28,.74,-1,.88))];
+    case 'traps': return [o('T',M(T.pt,T.nm,A_PROF.torso,.64,1.02,-1,.97,.5))];
+    case 'low': return [o('T',M(T.pt,T.nm,A_PROF.torso,0,.38,-1,.85))];
+    case 'glutes': return [o('T',M(T.pt,T.nm,A_PROF.torso,-.1,.2,-1,.98,.55)),o('th',M(th.pt,th.nm,A_PROF.thigh,-.05,.3,-1,.92,.55))];
+    case 'delts': return [o('ua',M(ua.pt,ua.nm,A_PROF.ua,-.08,.46,1,1,.5)+M(ua.pt,ua.nm,A_PROF.ua,-.08,.46,-1,1,.5))];
+    case 'biceps': return [o('ua',M(ua.pt,ua.nm,A_PROF.ua,.14,.9,1,.88))];
+    case 'triceps': return [o('ua',M(ua.pt,ua.nm,A_PROF.ua,.1,.9,-1,.92))];
+    case 'forearms': return [o('fa',M(fa.pt,fa.nm,A_PROF.fa,.04,.94,1,.85)+M(fa.pt,fa.nm,A_PROF.fa,.04,.94,-1,.85))];
+    case 'quads': return [o('th',M(th.pt,th.nm,A_PROF.thigh,.05,.95,1,.96))];
+    case 'hams': return [o('th',M(th.pt,th.nm,A_PROF.thigh,.05,.95,-1,.96))];
+    case 'calves': return [o('sh',M(sh.pt,sh.nm,A_PROF.shin,.04,.66,-1,.98))];
+    case 'tib': return [o('sh',M(sh.pt,sh.nm,A_PROF.shin,.08,.8,1,.7))];
   }
-  return '';
+  return [];
 }
 // ízületi szögek (könyök, térd, csípő, váll) – a mozgásirány-nyilakhoz
 function aJoints(J){ return [
@@ -2514,28 +2514,39 @@ function aArrows(J0,J1,fig){
   return s;
 }
 function anaSVG(J,fig,J1){
-  const T=aTorso(J), side=s=>({arm:[aLimb(J['sh'+s],J['el'+s],A_PROF.ua,0,1),aLimb(J['el'+s],J['wr'+s],A_PROF.fa,0,1),aLimb(J['wr'+s],J['ha'+s],A_PROF.hand,0,1)],
-    leg:[aLimb(J['hip'+s],J['kn'+s],A_PROF.thigh,0,1),aLimb(J['kn'+s],J['an'+s],A_PROF.shin,0,1),aLimb(J['an'+s],J['to'+s],A_PROF.foot,0,1)]});
+  const T=aTorso(J), cid='mc'+(aCid++);
+  const side=s=>({arm:[['ua',aLimb(J['sh'+s],J['el'+s],A_PROF.ua,0,1)],['fa',aLimb(J['el'+s],J['wr'+s],A_PROF.fa,0,1)],['fa',aLimb(J['wr'+s],J['ha'+s],A_PROF.hand,0,1)]],
+    leg:[['th',aLimb(J['hip'+s],J['kn'+s],A_PROF.thigh,0,1)],['sh',aLimb(J['kn'+s],J['an'+s],A_PROF.shin,0,1)],['sh',aLimb(J['an'+s],J['to'+s],A_PROF.foot,0,1)]]});
   const dot=(c,r)=>`M${aF(c[0]-r)} ${aF(c[1])}a${r} ${r} 0 1 0 ${2*r} 0a${r} ${r} 0 1 0 ${-2*r} 0Z`;
-  const N=side('N'), F=side('F'); N.arm.push(dot(J.shN,5.3)); F.arm.push(dot(J.shF,5.1));
-  const bd=(...ds)=>ds.flat().map(d=>`<path class="bdo" d="${d}"/>`).join('')+ds.flat().map(d=>`<path class="bdf" d="${d}"/>`).join('');
+  const N=side('N'), F=side('F'); N.arm.push(['ua',dot(J.shN,6.2)]); F.arm.push(['ua',dot(J.shF,6)]);
+  // hengeres árnyékolás: minden szegmensen előlről (világos) hátrafelé (sötét)
+  const segs={ T:[J.pelvis,J.neck,T.nm(.5)], uaN:[J.shN,J.elN], faN:[J.elN,J.wrN], thN:[J.hipN,J.knN], shN:[J.knN,J.anN], uaF:[J.shF,J.elF], faF:[J.elF,J.wrF], thF:[J.hipF,J.knF], shF:[J.knF,J.anF] };
+  let defs='';
+  const grad=(id,a,b,q,c)=>{ const m=[(a[0]+b[0])/2,(a[1]+b[1])/2], R=11;
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${aF(m[0]+q[0]*R)}" y1="${aF(m[1]+q[1]*R)}" x2="${aF(m[0]-q[0]*R)}" y2="${aF(m[1]-q[1]*R)}"><stop offset="0" style="stop-color:var(--${c}l)"/><stop offset=".38" style="stop-color:var(--${c}m)"/><stop offset="1" style="stop-color:var(--${c}d)"/></linearGradient>`; };
+  for(const k in segs){ const [a,b,q0]=segs[k], dx=b[0]-a[0], dy=b[1]-a[1], l=Math.hypot(dx,dy)||1, q=q0||[dy/l,-dx/l], far=k.endsWith('F');
+    for(const c of far?['f']:['g','o']) defs+=grad(`${cid}${k}${c}`,a,b,q,c); }
+  const fill=(seg,far,c)=>`url(#${cid}${seg==='T'?'T':seg+(far?'F':'N')}${c})`;
+  const bd=(list,far)=>list.map(([sg,d])=>`<path class="bdo" d="${d}"/>`).join('')+list.map(([sg,d])=>`<path class="bdf" style="fill:${far?fill(sg,1,'f'):fill(sg,0,'g')}" d="${d}"/>`).join('');
   const hv=[J.head[0]-J.neck[0],J.head[1]-J.neck[1]], hl=Math.hypot(hv[0],hv[1])||1, ux=hv[0]/hl, uy=hv[1]/hl, q=[-uy,ux];   // q = a fej előre-iránya
   const neck=aLimb(J.neck,[J.neck[0]+hv[0]*.62,J.neck[1]+hv[1]*.62],A_PROF.neck,0,1);
   const hx=J.head[0], hy=J.head[1], ng=[hx+q[0]*8.2-ux*1.4,hy+q[1]*8.2-uy*1.4];
   const nose=`M${aF(ng[0]-ux*2.2)} ${aF(ng[1]-uy*2.2)}L${aF(ng[0]+q[0]*2.4+ux*.4)} ${aF(ng[1]+q[1]*2.4+uy*.4)}L${aF(ng[0]+ux*2.2)} ${aF(ng[1]+uy*2.2)}Z`;
   const circ=`M${aF(hx-8)} ${aF(hy)}a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z`;
+  defs+=`<radialGradient id="${cid}H" gradientUnits="userSpaceOnUse" cx="${aF(hx+q[0]*3)}" cy="${aF(hy+q[1]*3-3)}" r="11"><stop offset="0" style="stop-color:var(--gl)"/><stop offset=".6" style="stop-color:var(--gm)"/><stop offset="1" style="stop-color:var(--gd)"/></radialGradient>`;
+  const torso=aShape(T.pt,T.nm,A_PROF.torso,0,1,0,9);
   const m=fig.mus||{main:[],sec:[]};
-  const cid='mc'+(aCid++);
-  const clip=`<clipPath id="${cid}">${[neck,N.leg,N.arm,aShape(T.pt,T.nm,A_PROF.torso,0,1,0,9)].flat().map(d=>`<path d="${d}"/>`).join('')}</clipPath>`;
-  const mus=(list,cls)=>list.map(k=>`<path class="mus ${cls}" d="${aMuscle(k,J,T)}"/>`).join('');
-  const base=J1?ALLMUS.filter(k=>!m.main.includes(k)&&!m.sec.includes(k)).map(k=>`<path class="mus b" d="${aMuscle(k,J,T)}"/>`).join(''):'';
-  return `<g class="far">${bd(F.arm)}${bd(F.leg)}</g>`
-    +bd(aShape(T.pt,T.nm,A_PROF.torso,0,1,0,9))+bd(neck)+bd(circ,nose)
+  defs+=`<clipPath id="${cid}">${[neck,...N.leg.map(x=>x[1]),...N.arm.map(x=>x[1]),torso].map(d=>`<path d="${d}"/>`).join('')}</clipPath>`;
+  const mus=(list,cls,c)=>list.map(k=>aMuscle(k,J,T).map(({s,d})=>`<path class="mus ${cls}" style="fill:${fill(s,0,c)}" d="${d}"/>`).join('')).join('');
+  const base=J1?ALLMUS.filter(k=>!m.main.includes(k)&&!m.sec.includes(k)).map(k=>aMuscle(k,J,T).map(({s,d})=>`<path class="mus b" style="fill:${fill(s,0,'g')}" d="${d}"/>`).join('')).join(''):'';
+  return `<defs>${defs}</defs><g class="far">${bd(F.arm,1)}${bd(F.leg,1)}</g>`
+    +bd([['T',torso],['T',neck]])
+    +`<path class="bdo" d="${circ}"/><path class="bdo" d="${nose}"/><path class="bdf" style="fill:url(#${cid}H)" d="${circ}"/><path class="bdf" style="fill:url(#${cid}H)" d="${nose}"/>`
     +bd(N.leg)+bd(N.arm)
-    +`<defs>${clip}</defs><g clip-path="url(#${cid})">${base}${mus(m.sec,'s')}${mus(m.main,'m')}</g>`
+    +`<g clip-path="url(#${cid})">${base}${mus(m.sec,'s','o')}${mus(m.main,'m','o')}</g>`
     +(J1?aArrows(J,J1,fig):'');
 }
-let aCid=0; const ALLMUS=['abs','chest','lats','traps','low','glutes','delts','biceps','triceps','forearms','quads','hams','calves'];
+let aCid=0; const ALLMUS=['abs','chest','lats','traps','low','glutes','delts','biceps','triceps','forearms','quads','hams','calves','tib'];
 
 function figHTML(id,big,det){
   const fig=figFrames(id); if(!fig) return '';
